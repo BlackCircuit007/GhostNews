@@ -24,7 +24,8 @@ app.use((req, res, next) => {
 });
 
 // Owner email (where verification links are sent). Set via env OWNER_EMAIL.
-const OWNER_EMAIL = process.env.OWNER_EMAIL || 'owner@example.com';
+const OWNER_EMAIL = process.env.OWNER_EMAIL || '';
+const MAIL_FROM = process.env.MAIL_FROM || process.env.SMTP_USER || '';
 
 // ------------------------------------------------------------------
 // Persistent stores (survive server restarts so payers in the US can
@@ -68,7 +69,7 @@ async function getTransporter(){
   if(transporterPromise) return transporterPromise;
   
   // Use real SMTP if configured, otherwise skip email (don't try Ethereal at startup)
-  if(process.env.SMTP_HOST){
+  if(process.env.SMTP_HOST && OWNER_EMAIL && MAIL_FROM){
     const nodemailer = require('nodemailer');
     transporterPromise = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -99,13 +100,13 @@ app.post('/api/request-verify', async (req, res) => {
     if(!transporter){
       // No SMTP configured - just return the token for direct verification
       console.log('Payment verification request (no email):', { phone, amount, ref, token });
-      return res.json({ ok: true, token, message: 'Verification pending. Use token to check status.' });
+      return res.json({ ok: true, token, emailSent: false, message: 'Verification request saved, but email is not configured.' });
     }
 
     const verifyUrl = `${req.protocol}://${req.get('host')}/verify/${token}`;
     const nodemailer = require('nodemailer');
     const info = await transporter.sendMail({
-      from: 'no-reply@pressclub.example',
+      from: MAIL_FROM,
       to: OWNER_EMAIL,
       subject: `Payment verification request: ${ref}`,
       html: `<p>Payment request received:</p>
@@ -119,12 +120,12 @@ app.post('/api/request-verify', async (req, res) => {
 
     const preview = nodemailer.getTestMessageUrl(info) || null;
     console.log('Payment verification request:', { phone, amount, ref, token, preview: !!preview });
-    return res.json({ ok: true, token, preview });
+    return res.json({ ok: true, token, emailSent: true, preview });
   }
   catch(err){
     console.error('Email send error', err);
     // Still return the token so verification can happen manually
-    return res.json({ ok: true, token, message: 'Email send failed, but token created. Verification can proceed manually.' });
+    return res.json({ ok: true, token, emailSent: false, message: 'Email delivery failed, but the verification request was saved for manual review.' });
   }
 });
 
@@ -198,7 +199,7 @@ app.post('/api/contact', async (req, res) => {
       // Send email to owner
       const nodemailer = require('nodemailer');
       const info = await transporter.sendMail({
-        from: email,
+        from: MAIL_FROM,
         to: OWNER_EMAIL,
         replyTo: email,
         subject: subject || `New contact form submission from ${name}`,
@@ -214,27 +215,10 @@ app.post('/api/contact', async (req, res) => {
       console.log('Contact form received (no email sent - SMTP not configured):', { name, email, subject });
     }
     
-    // Create a payer account for this user
-    const payerId = 'user_' + crypto.randomBytes(6).toString('hex');
-    const transaction = {
-      id: payerId,
-      phone: email,
-      amount: 'Contact Form',
-      ref: name,
-      date: new Date().toISOString(),
-      email: email
-    };
-    ledger.push(transaction);
-    saveData();
-    
-    console.log('Payer account created:', payerId, 'for', email);
-    
     return res.json({ 
       ok: true, 
-      message: 'Email sent successfully',
-      payerId: payerId,
-      transactionId: payerId,
-      isNowPayer: true
+      message: transporter ? 'Email sent successfully' : 'Message received, but email delivery is not configured yet.',
+      emailSent: Boolean(transporter)
     });
   } catch(err) {
     console.error('Contact email send error', err);

@@ -83,6 +83,7 @@ const next =
 document.getElementById("nextDayBtn");
 
 let articleList = [];
+const requestedArticleId = url.get('article');
 
 // Payer logic
 const BECOME_PAYER_BTN_ID = "becomePayerBtn";
@@ -254,8 +255,10 @@ document.addEventListener("click", (e) => {
                 // show preview link when using Ethereal (dev)
                 if(result.preview){
                     alert('Verification email sent (dev preview): ' + result.preview);
+                } else if(result.emailSent){
+                    alert('Verification email sent to the site owner. You will be enabled after owner confirms.');
                 } else {
-                    alert('Verification email sent to site owner. You will be enabled after owner confirms.');
+                    alert(result.message || 'Verification request saved, but email delivery is unavailable. Please contact the site owner directly.');
                 }
 
                 // store a pending token + phone locally to poll the server (use token returned if present)
@@ -311,6 +314,32 @@ function requirePayer(action){
     openPaymentModal();
 }
 
+function getPinnedArticles(){
+    try { return JSON.parse(localStorage.getItem('pressclub_pinned_articles') || '[]'); }
+    catch { return []; }
+}
+
+function isPinned(id){ return getPinnedArticles().some(article => article.id === id); }
+
+function togglePin(id){
+    const article = getArticle(id);
+    if(!article) return;
+    const pins = getPinnedArticles();
+    const existing = pins.findIndex(pin => pin.id === id);
+    if(existing >= 0) pins.splice(existing, 1);
+    else pins.unshift({ id: article.id, title: article.title, summary: article.summary, content: article.content, author: article.author, date: article.date, url: article.url, image: article.image });
+    localStorage.setItem('pressclub_pinned_articles', JSON.stringify(pins.slice(0, 50)));
+    renderArticles();
+    showStatus(existing >= 0 ? 'Article removed from your dashboard.' : 'Article saved to your dashboard.');
+}
+
+async function restorePayerSession(){
+    if(isPayer()) return true;
+    const phone = getLoggedInPhone();
+    if(!phone) return false;
+    return autoLoginWithPhone(phone);
+}
+
 function formatDate(date){
 
     return date
@@ -343,6 +372,10 @@ function truncate(text, length = 180){
         ? text.substring(0, length).trim() + "..."
         : text;
 
+}
+
+function isRestrictedFeedContent(content){
+    return !content || /only available in paid plans|content unavailable|subscribe to continue/i.test(String(content));
 }
 function updateHeader(){
 
@@ -427,6 +460,8 @@ api.searchParams.set(
 }
 function normalize(item){
 
+    const providerContent = item.content || '';
+
     return {
 
         id:item.article_id,
@@ -445,10 +480,9 @@ truncate(
     "No summary available."
 ),
 
-content:
-item.content ||
-item.description ||
-"Click 'Read Original Article' for the complete story.",
+content: isRestrictedFeedContent(providerContent) ? '' : providerContent,
+
+contentAvailable: !isRestrictedFeedContent(providerContent),
 
 
         image:
@@ -531,6 +565,11 @@ await fetchNews(
         articleList =
         results.map(normalize);
 
+        const savedArticle = requestedArticleId && getPinnedArticles().find(article => article.id === requestedArticleId);
+        if(savedArticle && !articleList.some(article => article.id === savedArticle.id)){
+            articleList.unshift(savedArticle);
+        }
+
         if(articleList.length===0){
 
             articles.innerHTML=
@@ -541,6 +580,9 @@ await fetchNews(
         }
 
         renderArticles();
+        if(requestedArticleId && getArticle(requestedArticleId)){
+            showArticle(requestedArticleId);
+        }
 
     }
 
@@ -624,9 +666,9 @@ function renderArticles(){
                 </button>
 
                 ${isPayer() ? `
-                <button class="btn primary" data-id="${article.id}" onclick="alert('Pinned to your dashboard')">📌 Pin</button>
+                <button class="btn ${isPinned(article.id) ? 'primary' : 'secondary'} pin-btn" data-id="${article.id}">${isPinned(article.id) ? '✓ Saved' : '📌 Save to dashboard'}</button>
                 ` : `
-                <button class="btn secondary" onclick="requirePayer(()=>alert('Preview: Pinned posts are a payer feature'))">📌 Pin (Payer)</button>
+                <button class="btn secondary pin-btn" data-id="${article.id}">📌 Save to dashboard</button>
                 `}
 
             </div>
@@ -645,11 +687,16 @@ function getArticle(id){
 
 }
 
-function showArticle(id){
+async function showArticle(id){
 
     const article=getArticle(id);
 
     if(!article) return;
+
+    // A saved phone can restore a payer session after a page refresh.
+    if(!isPayer() && await restorePayerSession()){
+        renderArticles();
+    }
 
     // Check if user is a payer; show full article only to payers
     if(!isPayer()){
@@ -722,20 +769,31 @@ function showArticle(id){
                 ""
             }
 
-            <p>
+            ${article.contentAvailable !== false && !isRestrictedFeedContent(article.content) ? `
+                <div class="premium-article-label">Premium full article</div>
+                <p>${article.content}</p>
+            ` : `
+                <div class="source-only-notice">
+                    <strong>Full publisher text is not included in this news feed.</strong>
+                    <p>PressClub has saved the article details, but the publisher keeps the complete story on its website. Use the button below to read it directly from the source.</p>
+                </div>
+            `}
 
-            ${article.content}
-
-            </p>
+            <div class="article-reading-info">
+                <span><strong>Publisher:</strong> ${article.author}</span>
+                <span><strong>Published:</strong> ${article.date}</span>
+                <span><strong>Reading access:</strong> ${article.contentAvailable !== false && !isRestrictedFeedContent(article.content) ? 'Full feed text' : 'Publisher article link'}</span>
+            </div>
 
             <br>
 
             <a
             href="${article.url}"
             target="_blank"
+            rel="noopener noreferrer"
             class="btn primary">
 
-            Read Original Article
+            Read full article at publisher
 
             </a>
 
@@ -933,6 +991,8 @@ articles.addEventListener("click",(e)=>{
 
     const doc=e.target.closest(".doc-btn");
 
+    const pin=e.target.closest('.pin-btn');
+
     if(read){
 
         showArticle(read.dataset.id);
@@ -965,6 +1025,10 @@ articles.addEventListener("click",(e)=>{
 
         );
 
+    }
+
+    if(pin){
+        togglePin(pin.dataset.id);
     }
 
 });
@@ -1006,6 +1070,13 @@ picker.onchange=e=>{
 updateHeader();
 
 updatePayerUI();
+
+// Restore access automatically when the browser still remembers the payer phone.
+if(!isPayer() && getLoggedInPhone()){
+  restorePayerSession().then(restored => {
+    if(restored && articleList.length) renderArticles();
+  });
+}
 
 loadNews();
 

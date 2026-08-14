@@ -3,57 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Payer Dashboard</title>
-  <link rel="stylesheet" href="news.css">
+  <title>PressClub Premium Dashboard</title>
+  <link rel="stylesheet" href="news.css?v=3">
 </head>
 <body class="news-body">
   <nav class="news-nav">
-    <div class="news-brand">
-      <img src="./media (2).jpg" alt="PressClub logo">
-      <h2>Payer Dashboard</h2>
-    </div>
-    <div class="news-nav-links">
-      <a href="news.html">Back to News</a>
-      <button id="logoutPayerBtn" class="btn secondary">Log out (Payer)</button>
-    </div>
+    <div class="news-brand"><img src="./media (2).jpg" alt="PressClub logo"><h2>PressClub Premium</h2></div>
+    <div class="news-nav-links"><a href="news.html">Back to News</a><button id="logoutPayerBtn" class="btn secondary">Log out</button></div>
   </nav>
-
-  <main class="news-layout">
-    <section class="news-content">
-      <div class="news-header">
-        <p>Premium</p>
-        <h1>Your Payer Dashboard</h1>
-      </div>
-
-      <div id="payerInfo" class="status-message" style="display:block"></div>
-      <div id="payerControls" class="payerControls">
-        <div style="flex:1">
-          <h3>Account</h3>
-          <p><strong>Status:</strong> <span id="payerStatus">Checking...</span></p>
-          <p><strong>Payer Phone:</strong> <span id="payerPhone">—</span></p>
-        </div>
-        <div style="flex:1">
-          <h3>Transactions</h3>
-          <ul id="payerTransactions"></ul>
-        </div>
-      </div>
-
-      <div id="payerFeatures">
-        <h3>Premium Features</h3>
-        <ul>
-          <li>Ad-free browsing (toggle below)</li>
-          <li>Pin important articles</li>
-          <li>Download unlimited PDFs/DOCX</li>
-          <li>Early access to breaking news</li>
-        </ul>
-        <div style="margin-top:12px">
-          <label><input id="adFreeToggle" type="checkbox" /> Enable ad-free browsing</label>
-        </div>
-      </div>
-
+  <main class="news-layout dashboard-layout"><section class="news-content">
+    <div class="news-header dashboard-page-header"><p>Premium membership</p><h1>Your reading dashboard</h1><span>Read full articles, save the stories that matter, and return to them anytime.</span></div>
+    <div id="payerInfo" class="status-message" style="display:block" aria-live="polite"></div>
+    <section id="payerControls" class="dashboard-overview">
+      <div class="dashboard-profile"><span class="eyebrow">Membership</span><h3>Premium access active</h3><p><strong>Status:</strong> <span id="payerStatus">Checking...</span></p><p><strong>Payer phone:</strong> <span id="payerPhone">Not provided</span></p><a class="btn primary" href="news.html">Browse today's news</a></div>
+      <div class="dashboard-stat"><span id="totalPaid">NGN 0</span><small>Total payment recorded</small></div>
+      <div class="dashboard-stat"><span id="pinnedCount">0</span><small>Saved articles</small></div>
     </section>
-  </main>
-
-  <script src="dashboard.js"></script>
+    <section class="dashboard-section dashboard-quick-actions"><div><span class="eyebrow">Quick actions</span><h3>Continue reading</h3></div><div class="quick-action-buttons"><a class="btn primary" href="news.html">Read premium articles</a><a class="btn secondary" href="#savedArticles">Open saved articles</a></div></section>
+    <section class="dashboard-section payment-value">
+      <div><span class="eyebrow">Your payment</span><h3 id="paymentTitle">Premium membership</h3><p id="paymentSummary">Your verified payment gives you premium reading access.</p><div id="latestPayment" class="payment-receipt"></div></div>
+      <div><span class="eyebrow">What your payment unlocks</span><ul class="benefit-list"><li><strong>Full articles</strong><span>Read premium stories without the preview limit.</span></li><li><strong>Reading list</strong><span>Save important articles to this dashboard.</span></li><li><strong>Article downloads</strong><span>Download premium articles as PDF or DOCX.</span></li><li><strong>Ad-free option</strong><span>Choose a cleaner reading experience.</span></li></ul></div>
+    </section>
+    <section id="savedArticles" class="dashboard-section"><div class="section-heading"><div><span class="eyebrow">Your reading list</span><h3>Saved articles</h3></div><button id="clearPinsBtn" class="btn secondary" type="button">Clear saved</button></div><div id="pinnedArticles" class="pinned-articles"></div></section>
+    <section class="dashboard-section dashboard-bottom-grid"><div><span class="eyebrow">Preferences</span><h3>Reading settings</h3><label class="setting-row"><span><strong>Ad-free browsing</strong><small>Hide supported promotional placements.</small></span><input id="adFreeToggle" type="checkbox"></label></div><div><span class="eyebrow">Payment history</span><h3>Transactions</h3><ul id="payerTransactions" class="transaction-list"></ul></div></section>
+  </section></main>
+  <script src="dashboard.js?v=4"></script>
 </body>
 </html>

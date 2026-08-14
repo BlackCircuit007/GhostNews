@@ -152,7 +152,7 @@ if (contactForm) {
             
             if (response.ok && data.ok) {
                 contactStatus.textContent = "✓ Message sent successfully! We'll get back to you soon.";
-                contactStatus.style.color = "green";
+                contactStatus.style.color = data.emailSent ? "green" : "#b45309";
                 contactForm.reset();
             } else {
                 contactStatus.textContent = "✗ Failed to send message: " + (data.message || "Unknown error");
