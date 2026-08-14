@@ -1,0 +1,47 @@
+{
+  "ledger": [
+    {
+      "phone": "08012345678",
+      "amount": "5000",
+      "ref": "TESTREF456",
+      "date": "2026-08-14T16:42:18.444Z",
+      "token": "fe525a33419e2e8247a23853",
+      "id": "tx_1786725772867",
+      "verified": true,
+      "verifiedAt": "2026-08-14T16:42:52.867Z"
+    },
+    {
+      "phone": "09046799115",
+      "amount": "5000",
+      "ref": "opay",
+      "date": "2026-08-14T16:50:32.673Z",
+      "token": "196cebcefb7fa2401881bef9",
+      "id": "tx_1786726264609",
+      "verified": true,
+      "verifiedAt": "2026-08-14T16:51:04.609Z"
+    }
+  ],
+  "pending": {},
+  "verifiedTokens": {
+    "fe525a33419e2e8247a23853": {
+      "phone": "08012345678",
+      "amount": "5000",
+      "ref": "TESTREF456",
+      "date": "2026-08-14T16:42:18.444Z",
+      "token": "fe525a33419e2e8247a23853",
+      "id": "tx_1786725772867",
+      "verified": true,
+      "verifiedAt": "2026-08-14T16:42:52.867Z"
+    },
+    "196cebcefb7fa2401881bef9": {
+      "phone": "09046799115",
+      "amount": "5000",
+      "ref": "opay",
+      "date": "2026-08-14T16:50:32.673Z",
+      "token": "196cebcefb7fa2401881bef9",
+      "id": "tx_1786726264609",
+      "verified": true,
+      "verifiedAt": "2026-08-14T16:51:04.609Z"
+    }
+  }
+}

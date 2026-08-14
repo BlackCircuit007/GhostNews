@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NewsSummary</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="news.css">
+</head>
+
+<body class="news-body">
+    <nav class="news-nav">
+        <div class="news-brand">
+            <img src="./media (2).jpg" alt="PressClub logo">
+            <h2>NewsSummary</h2>
+        </div>
+
+        <div class="news-nav-links">
+            <a href="news.html?category=local">Local News</a>
+            <a href="news.html?category=national">National News</a>
+            <a href="news.html?category=international">International News</a>
+            <a href="news.html?category=academic">World Academic News</a>
+            <a href="news.html?category=sports">Sports News</a>
+            <a id="payerDashboardLink" href="dashboard.html" style="display:none">Payer Dashboard</a>
+            <button id="loginBtn" class="btn secondary" type="button" style="display:inline-block">Login</button>
+            <button id="becomePayerBtn" class="btn secondary" type="button">Become Payer</button>
+        </div>
+    </nav>
+
+    <main class="news-layout">
+        <aside class="news-sidebar">
+            <h3>Categories</h3>
+            <div class="category-list">
+                <a href="news.html?category=local">Local News</a>
+                <a href="news.html?category=national">National News</a>
+                <a href="news.html?category=international">International News</a>
+                <a href="news.html?category=academic">World Academic News</a>
+                <a href="news.html?category=sports">Sports News</a>
+            </div>
+        </aside>
+
+        <section class="news-content">
+            <div class="news-header">
+                <p id="categoryLabel">News</p>
+                <h1 id="pageTitle">Latest Updates</h1>
+            </div>
+
+            <div id="statusMessage" class="status-message" aria-live="polite"></div>
+
+            <div class="date-toolbar">
+                <button id="prevDayBtn" class="nav-day-btn" type="button">← Previous day</button>
+                <input id="datePicker" type="date" aria-label="Pick a date" />
+                <button id="nextDayBtn" class="nav-day-btn" type="button">Next day →</button>
+            </div>
+
+            <div id="articles" class="articles-grid"></div>
+
+            <div id="articleDetail" class="article-detail"></div>
+        </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://unpkg.com/docx@8.1.0/build/index.umd.js"></script>
+    <!-- Payment modal -->
+    <div id="paymentModal" class="payment-modal" aria-hidden="true">
+        <div class="payment-modal__panel">
+            <h3>Become a Payer</h3>
+            <p>Send payment to the OPAY account below to unlock premium features and access the Payer Dashboard.</p>
+            <p><strong>OPAY Number:</strong> 7039245529</p>
+            <p>Enter the details of your transaction below so we can verify it.</p>
+
+            <label for="payerPhoneInput">Your Phone (used for verification)</label>
+            <input id="payerPhoneInput" type="text" placeholder="e.g. 08012345678" />
+
+            <label for="paymentAmountInput">Amount Paid (NGN) — Fixed price</label>
+            <input id="paymentAmountInput" type="number" value="5000" readonly />
+
+            <label for="paymentRefInput">Transaction Reference</label>
+            <input id="paymentRefInput" type="text" placeholder="Provider transaction reference" />
+
+            <div class="payment-modal__actions">
+                <button id="confirmPaidBtn" class="btn primary" type="button">Verify Payment</button>
+                <button id="closePaymentModal" class="btn secondary" type="button">Close</button>
+            </div>
+            <p style="margin-top:10px;font-size:0.9rem;color:var(--muted)">Note: For a real deployment, you must verify payments server-side with OPAY or your payment provider.</p>
+        </div>
+    </div>
+
+    <!-- Login modal -->
+    <div id="loginModal" class="payment-modal" aria-hidden="true">
+        <div class="payment-modal__panel">
+            <h3>Payer Login</h3>
+            <p>Enter the phone number you used when making your payment to log in.</p>
+
+            <label for="loginPhoneInput">Phone Number</label>
+            <input id="loginPhoneInput" type="text" placeholder="e.g. 08012345678" />
+
+            <div class="payment-modal__actions">
+                <button id="submitLoginBtn" class="btn primary" type="button">Login</button>
+                <button id="closeLoginModal" class="btn secondary" type="button">Close</button>
+            </div>
+            <p style="margin-top:10px;font-size:0.9rem;color:var(--muted)">
+                Haven't paid yet? <a href="#" onclick="event.preventDefault();closeLoginModal();openPaymentModal();return false;">Become a Payer</a>
+            </p>
+        </div>
+    </div>
+    <script src="./news.js"></script>
+</body>
+
+</html>

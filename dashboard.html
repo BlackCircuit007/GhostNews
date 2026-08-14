@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Payer Dashboard</title>
+  <link rel="stylesheet" href="news.css">
+</head>
+<body class="news-body">
+  <nav class="news-nav">
+    <div class="news-brand">
+      <img src="./media (2).jpg" alt="PressClub logo">
+      <h2>Payer Dashboard</h2>
+    </div>
+    <div class="news-nav-links">
+      <a href="news.html">Back to News</a>
+      <button id="logoutPayerBtn" class="btn secondary">Log out (Payer)</button>
+    </div>
+  </nav>
+
+  <main class="news-layout">
+    <section class="news-content">
+      <div class="news-header">
+        <p>Premium</p>
+        <h1>Your Payer Dashboard</h1>
+      </div>
+
+      <div id="payerInfo" class="status-message" style="display:block"></div>
+      <div id="payerControls" class="payerControls">
+        <div style="flex:1">
+          <h3>Account</h3>
+          <p><strong>Status:</strong> <span id="payerStatus">Checking...</span></p>
+          <p><strong>Payer Phone:</strong> <span id="payerPhone">—</span></p>
+        </div>
+        <div style="flex:1">
+          <h3>Transactions</h3>
+          <ul id="payerTransactions"></ul>
+        </div>
+      </div>
+
+      <div id="payerFeatures">
+        <h3>Premium Features</h3>
+        <ul>
+          <li>Ad-free browsing (toggle below)</li>
+          <li>Pin important articles</li>
+          <li>Download unlimited PDFs/DOCX</li>
+          <li>Early access to breaking news</li>
+        </ul>
+        <div style="margin-top:12px">
+          <label><input id="adFreeToggle" type="checkbox" /> Enable ad-free browsing</label>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

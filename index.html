@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PresClub</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <nav>
+        <!-- <div class="toggle-full">
+        <div id="toggle" class="toggle-container" onclick="switchmode()">
+            <div class="toggle" id="ball">
+
+            </div>
+        </div>
+        <p id="message">Dark Mode</p>
+        </div> -->
+        <div class="logo">
+            <img src="./media (2).jpg" alt="" srcset="" class="logo-img">
+            <h2>NewsSummary</h2>
+        </div>
+        <div class="nav-links">
+            <a class="local" href="news.html?category=local">Local News</a>
+            <a class="national" href="news.html?category=national">National News</a>
+            <a class="international" href="news.html?category=international">International News</a>
+            <a class="academic" href="news.html?category=academic">World Academic News</a>
+            <a class="sports" href="news.html?category=sports">Sports News</a>
+        </div>
+    </nav>
+    <div class="hero" id="hero">
+        <div class="left" id="left">
+            <h1>Specify your news search</h1>
+            <p>SSTAC AI assists the presclub to make specific news search aside from the default National News,
+                International News, World Academic News, Sports News.</p>
+        </div>
+        <div class="middle" id="middle">
+            <a class="shortcut" href="news.html?category=national">
+                <h1>National News</h1>
+            </a>
+            <a class="shortcut" href="news.html?category=international">
+                <h1>International News</h1>
+            </a>
+            <a class="shortcut" href="news.html?category=academic">
+                <h1>World Academic News</h1>
+            </a>
+            <a class="shortcut" href="news.html?category=sports">
+                <h1>Sports News</h1>
+            </a>
+        </div>
+        <div class="right" id="right">
+            <h1 class="name">Search the news</h1>
+            <h2 class="text">Find stories by topic</h2>
+            <p>Type a topic, event, or keyword and the site will clean up minor spelling mistakes before fetching relevant news.</p>
+
+            <form id="news-search-form" class="search-form">
+                <label for="news-search">News topic</label>
+                <div class="search-input-wrap">
+                    <input id="news-search" type="text" placeholder="e.g. climate change, football, election" />
+                    <button class="search-btn" type="submit">Search</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contact Form Section -->
+    <section class="contact-section">
+        <div class="contact-container">
+            <h2>Get in Touch</h2>
+            <p>Have a question or feedback? Send us a message below.</p>
+            
+            <form id="contact-form" class="contact-form">
+                <div class="form-group">
+                    <label for="contact-name">Name</label>
+                    <input type="text" id="contact-name" name="name" required placeholder="Your Name" />
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-email">Email</label>
+                    <input type="email" id="contact-email" name="email" required placeholder="your.email@example.com" />
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-subject">Subject (Optional)</label>
+                    <input type="text" id="contact-subject" name="subject" placeholder="Subject of your message" />
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-message">Message</label>
+                    <textarea id="contact-message" name="message" required placeholder="Your message here..." rows="5"></textarea>
+                </div>
+
+                <button type="submit" class="submit-btn">Send Message</button>
+                <div id="contact-status" class="status-message"></div>
+            </form>
+        </div>
+    </section>
+
+    <script src="./index.js"></script>
+</body>
+
+</html>
