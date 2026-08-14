@@ -1,13 +1,18 @@
 // Mock Express server with email-based verification flow
 require('dotenv').config();
 const express = require('express');
-const bodyParser = require('body-parser');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
+const compression = require('compression');
 
 const app = express();
-app.use(bodyParser.json());
+
+// Enable compression for faster static file serving
+app.use(compression());
+
+// Use Express built-in JSON parser (no need for body-parser separately)
+app.use(express.json());
 
 // CORS middleware
 app.use((req, res, next) => {
@@ -25,7 +30,6 @@ const OWNER_EMAIL = process.env.OWNER_EMAIL || 'owner@example.com';
 // Persistent stores (survive server restarts so payers in the US can
 // be verified later by the owner in Nigeria without losing data)
 // ------------------------------------------------------------------
-const fs = require('fs');
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 let ledger = []; // verified transactions
@@ -57,25 +61,28 @@ function saveData(){
 
 loadData();
 
-async function createTransporter(){
+// Lazy transporter creation - only creates when first email is sent (NOT at startup)
+let transporterPromise = null;
+
+async function getTransporter(){
+  if(transporterPromise) return transporterPromise;
+  
+  // Use real SMTP if configured, otherwise skip email (don't try Ethereal at startup)
   if(process.env.SMTP_HOST){
-    return nodemailer.createTransport({
+    const nodemailer = require('nodemailer');
+    transporterPromise = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
       secure: process.env.SMTP_SECURE === '1',
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
     });
+    return transporterPromise;
   }
-  // fallback to Ethereal for demo
-  const testAccount = await nodemailer.createTestAccount();
-  return nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
-    auth: { user: testAccount.user, pass: testAccount.pass }
-  });
+  
+  // No SMTP configured - return null, API will work without email
+  transporterPromise = null;
+  return null;
 }
-
-let transporterPromise = createTransporter();
 
 app.post('/api/request-verify', async (req, res) => {
   const { phone, amount, ref } = req.body || {};
@@ -87,10 +94,16 @@ app.post('/api/request-verify', async (req, res) => {
   pending[token] = { phone, amount: String(amount), ref, date: new Date().toISOString(), token };
   saveData();
 
-  const verifyUrl = `${req.protocol}://${req.get('host')}/verify/${token}`;
-
   try{
-    const transporter = await transporterPromise;
+    const transporter = await getTransporter();
+    if(!transporter){
+      // No SMTP configured - just return the token for direct verification
+      console.log('Payment verification request (no email):', { phone, amount, ref, token });
+      return res.json({ ok: true, token, message: 'Verification pending. Use token to check status.' });
+    }
+
+    const verifyUrl = `${req.protocol}://${req.get('host')}/verify/${token}`;
+    const nodemailer = require('nodemailer');
     const info = await transporter.sendMail({
       from: 'no-reply@pressclub.example',
       to: OWNER_EMAIL,
@@ -110,7 +123,8 @@ app.post('/api/request-verify', async (req, res) => {
   }
   catch(err){
     console.error('Email send error', err);
-    return res.status(500).json({ ok: false, message: 'Email send failed: ' + err.message });
+    // Still return the token so verification can happen manually
+    return res.json({ ok: true, token, message: 'Email send failed, but token created. Verification can proceed manually.' });
   }
 });
 
@@ -178,23 +192,27 @@ app.post('/api/contact', async (req, res) => {
   }
 
   try {
-    const transporter = await transporterPromise;
+    const transporter = await getTransporter();
     
-    // Send email to owner
-    const info = await transporter.sendMail({
-      from: email,
-      to: OWNER_EMAIL,
-      replyTo: email,
-      subject: subject || `New contact form submission from ${name}`,
-      html: `<h2>New Contact Form Submission</h2>
-             <p><strong>From:</strong> ${name} (${email})</p>
-             <p><strong>Subject:</strong> ${subject || 'N/A'}</p>
-             <hr>
-             <p><strong>Message:</strong></p>
-             <p>${message.replace(/\n/g, '<br>')}</p>`
-    });
-
-    console.log('Contact email sent:', { name, email, subject, preview: !!nodemailer.getTestMessageUrl(info) });
+    if(transporter){
+      // Send email to owner
+      const nodemailer = require('nodemailer');
+      const info = await transporter.sendMail({
+        from: email,
+        to: OWNER_EMAIL,
+        replyTo: email,
+        subject: subject || `New contact form submission from ${name}`,
+        html: `<h2>New Contact Form Submission</h2>
+               <p><strong>From:</strong> ${name} (${email})</p>
+               <p><strong>Subject:</strong> ${subject || 'N/A'}</p>
+               <hr>
+               <p><strong>Message:</strong></p>
+               <p>${message.replace(/\n/g, '<br>')}</p>`
+      });
+      console.log('Contact email sent:', { name, email, subject, preview: !!nodemailer.getTestMessageUrl(info) });
+    } else {
+      console.log('Contact form received (no email sent - SMTP not configured):', { name, email, subject });
+    }
     
     // Create a payer account for this user
     const payerId = 'user_' + crypto.randomBytes(6).toString('hex');
@@ -254,8 +272,26 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// Serve static files
-app.use(express.static(path.join(__dirname)));
+// Serve static files with caching headers
+app.use(express.static(path.join(__dirname), {
+  maxAge: '1h',
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // Cache HTML files for shorter time
+    if(filePath.endsWith('.html')){
+      res.setHeader('Cache-Control', 'public, max-age=300');
+    }
+    // Cache images and fonts longer
+    if(filePath.match(/\.(jpg|jpeg|png|gif|ico|svg|webp)$/i)){
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+    // Cache CSS and JS
+    if(filePath.match(/\.(css|js)$/i)){
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
+  }
+}));
 
 // Root route - serve index.html
 app.get('/', (req, res) => {
@@ -263,12 +299,18 @@ app.get('/', (req, res) => {
 });
 
 // Fallback for direct HTML access
-app.get('/:page.html', (req, res) => {
-  res.sendFile(path.join(__dirname, req.params.page + '.html'));
+app.get('/:page', (req, res) => {
+  // Only allow .html extension for safety
+  const page = req.params.page;
+  if(page.endsWith('.html')){
+    res.sendFile(path.join(__dirname, page));
+  } else {
+    res.status(404).send('Not found');
+  }
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log('========================================');
   console.log('Verification server running on http://localhost:' + port);
   console.log('========================================');

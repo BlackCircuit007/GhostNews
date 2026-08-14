@@ -752,6 +752,26 @@ function showArticle(id){
 
 }
 
+function loadScript(src){
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.head.appendChild(script);
+    });
+}
+
+// Lazy-load jsPDF only when needed
+let jspdfPromise = null;
+function ensureJspdf(){
+    if(window.jspdf) return Promise.resolve();
+    if(!jspdfPromise){
+        jspdfPromise = loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+    return jspdfPromise;
+}
+
 function downloadPDF(article){
 
     if(!isPayer()){
@@ -760,46 +780,57 @@ function downloadPDF(article){
         return;
     }
 
-    if(!window.jspdf){
+    ensureJspdf().then(() => {
+        if(!window.jspdf){
+            alert('PDF library failed to load. Please check your internet connection.');
+            return;
+        }
 
-        alert("jsPDF missing");
+        const {jsPDF}=window.jspdf;
 
-        return;
+        const pdf=new jsPDF();
 
+        pdf.setFontSize(18);
+
+        pdf.text(article.title,20,20);
+
+        pdf.setFontSize(11);
+
+        pdf.text(article.author,20,35);
+
+        pdf.text(article.date,20,45);
+
+        const lines=
+
+        pdf.splitTextToSize(
+
+            article.content,
+
+            170
+
+        );
+
+        pdf.text(lines,20,60);
+
+        pdf.save(
+
+            article.title+".pdf"
+
+        );
+    }).catch(() => {
+        alert('Failed to load PDF library. Please check your internet connection.');
+    });
+
+}
+
+// Lazy-load docx library only when needed
+let docxPromise = null;
+function ensureDocx(){
+    if(window.docx) return Promise.resolve();
+    if(!docxPromise){
+        docxPromise = loadScript('https://unpkg.com/docx@8.1.0/build/index.umd.js');
     }
-
-    const {jsPDF}=window.jspdf;
-
-    const pdf=new jsPDF();
-
-    pdf.setFontSize(18);
-
-    pdf.text(article.title,20,20);
-
-    pdf.setFontSize(11);
-
-    pdf.text(article.author,20,35);
-
-    pdf.text(article.date,20,45);
-
-    const lines=
-
-    pdf.splitTextToSize(
-
-        article.content,
-
-        170
-
-    );
-
-    pdf.text(lines,20,60);
-
-    pdf.save(
-
-        article.title+".pdf"
-
-    );
-
+    return docxPromise;
 }
 
 async function downloadDOC(article){
@@ -810,77 +841,87 @@ async function downloadDOC(article){
         return;
     }
 
-    const {
+    try {
+        await ensureDocx();
+        if(!window.docx){
+            alert('DOCX library failed to load. Please check your internet connection.');
+            return;
+        }
 
-        Document,
+        const {
 
-        Paragraph,
+            Document,
 
-        Packer,
+            Paragraph,
 
-        HeadingLevel
+            Packer,
 
-    }=docx;
+            HeadingLevel
 
-    const document=
+        }=docx;
 
-    new Document({
+        const document=
 
-        sections:[{
+        new Document({
 
-            children:[
+            sections:[{
 
-                new Paragraph({
+                children:[
 
-                    text:article.title,
+                    new Paragraph({
 
-                    heading:
+                        text:article.title,
 
-                    HeadingLevel.TITLE
+                        heading:
 
-                }),
+                        HeadingLevel.TITLE
 
-                new Paragraph({
+                    }),
 
-                    text:article.author
+                    new Paragraph({
 
-                }),
+                        text:article.author
 
-                new Paragraph({
+                    }),
 
-                    text:article.date
+                    new Paragraph({
 
-                }),
+                        text:article.date
 
-                new Paragraph({
+                    }),
 
-                    text:article.content
+                    new Paragraph({
 
-                })
+                        text:article.content
 
-            ]
+                    })
 
-        }]
+                ]
 
-    });
+            }]
 
-    const blob=
+        });
 
-    await Packer.toBlob(document);
+        const blob=
 
-    const link=
+        await Packer.toBlob(document);
 
-    document.createElement("a");
+        const link=
 
-    link.href=
+        document.createElement("a");
 
-    URL.createObjectURL(blob);
+        link.href=
 
-    link.download=
+        URL.createObjectURL(blob);
 
-    article.title+".docx";
+        link.download=
 
-    link.click();
+        article.title+".docx";
+
+        link.click();
+    } catch(err) {
+        alert('Failed to load DOCX library. Please check your internet connection.');
+    }
 
 }
 
