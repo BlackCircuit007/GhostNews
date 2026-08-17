@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NewsSummary</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-    <link rel="stylesheet" href="index.css">
-    <link rel="stylesheet" href="news.css">
+  <link rel="stylesheet" href="index.css">
+  <link rel="stylesheet" href="news.css?v=6">
 </head>
 
 <body class="news-body">
@@ -17,7 +17,11 @@
             <h2>NewsSummary</h2>
         </div>
 
-        <div class="news-nav-links">
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+
+        <div class="news-nav-links" id="navLinks">
             <a href="news.html?category=local">Local News</a>
             <a href="news.html?category=national">National News</a>
             <a href="news.html?category=international">International News</a>
@@ -49,6 +53,11 @@
 
             <div id="statusMessage" class="status-message" aria-live="polite"></div>
 
+            <div class="ad-placeholder" data-ad>
+                <span>Advertisement</span>
+                <small>Support PressClub by viewing this ad. Payers can hide ads in their dashboard.</small>
+            </div>
+
             <div class="date-toolbar">
                 <button id="prevDayBtn" class="nav-day-btn" type="button">← Previous day</button>
                 <input id="datePicker" type="date" aria-label="Pick a date" />
@@ -56,6 +65,11 @@
             </div>
 
             <div id="articles" class="articles-grid"></div>
+
+            <div class="ad-placeholder" data-ad>
+                <span>Advertisement</span>
+                <small>Support PressClub by viewing this ad. Payers can hide ads in their dashboard.</small>
+            </div>
 
             <div id="articleDetail" class="article-detail"></div>
         </section>
@@ -86,6 +100,7 @@
                 <button id="confirmPaidBtn" class="btn primary" type="button">Verify Payment</button>
                 <button id="closePaymentModal" class="btn secondary" type="button">Close</button>
             </div>
+            <p id="paymentStatus" class="payment-status" aria-live="polite"></p>
             <p style="margin-top:10px;font-size:0.9rem;color:var(--muted)">Note: For a real deployment, you must verify payments server-side with OPAY or your payment provider.</p>
         </div>
     </div>
@@ -108,7 +123,9 @@
             </p>
         </div>
     </div>
-    <script src="./news.js?v=6"></script>
+  <script src="./ads.js?v=1"></script>
+  <script src="./news.js?v=10"></script>
+  <script src="./contact.js?v=2"></script>
 </body>
 
 </html>

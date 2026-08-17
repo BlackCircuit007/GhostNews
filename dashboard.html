@@ -4,15 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>PressClub Premium Dashboard</title>
-  <link rel="stylesheet" href="news.css?v=3">
+  <link rel="stylesheet" href="news.css?v=5">
+  <link rel="stylesheet" href="index.css">
 </head>
 <body class="news-body">
   <nav class="news-nav">
     <div class="news-brand"><img src="./media (2).jpg" alt="PressClub logo"><h2>PressClub Premium</h2></div>
-    <div class="news-nav-links"><a href="news.html">Back to News</a><button id="logoutPayerBtn" class="btn secondary">Log out</button></div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="news-nav-links" id="navLinks"><a href="news.html">Back to News</a><button id="logoutPayerBtn" class="btn secondary">Log out</button></div>
   </nav>
   <main class="news-layout dashboard-layout"><section class="news-content">
-    <div class="news-header dashboard-page-header"><p>Premium membership</p><h1>Your reading dashboard</h1><span>Read full articles, save the stories that matter, and return to them anytime.</span></div>
+    <div class="news-header dashboard-page-header"><p>Premium membership <span class="badge-payer" style="margin-left:6px">★ PAYER</span></p><h1>Your reading dashboard</h1><span>Read full articles, save the stories that matter, and return to them anytime.</span></div>
     <div id="payerInfo" class="status-message" style="display:block" aria-live="polite"></div>
     <section id="payerControls" class="dashboard-overview">
       <div class="dashboard-profile"><span class="eyebrow">Membership</span><h3>Premium access active</h3><p><strong>Status:</strong> <span id="payerStatus">Checking...</span></p><p><strong>Payer phone:</strong> <span id="payerPhone">Not provided</span></p><a class="btn primary" href="news.html">Browse today's news</a></div>
@@ -25,8 +29,88 @@
       <div><span class="eyebrow">What your payment unlocks</span><ul class="benefit-list"><li><strong>Full articles</strong><span>Read premium stories without the preview limit.</span></li><li><strong>Reading list</strong><span>Save important articles to this dashboard.</span></li><li><strong>Article downloads</strong><span>Download premium articles as PDF or DOCX.</span></li><li><strong>Ad-free option</strong><span>Choose a cleaner reading experience.</span></li></ul></div>
     </section>
     <section id="savedArticles" class="dashboard-section"><div class="section-heading"><div><span class="eyebrow">Your reading list</span><h3>Saved articles</h3></div><button id="clearPinsBtn" class="btn secondary" type="button">Clear saved</button></div><div id="pinnedArticles" class="pinned-articles"></div></section>
-    <section class="dashboard-section dashboard-bottom-grid"><div><span class="eyebrow">Preferences</span><h3>Reading settings</h3><label class="setting-row"><span><strong>Ad-free browsing</strong><small>Hide supported promotional placements.</small></span><input id="adFreeToggle" type="checkbox"></label></div><div><span class="eyebrow">Payment history</span><h3>Transactions</h3><ul id="payerTransactions" class="transaction-list"></ul></div></section>
+    <section class="dashboard-section premium-extras">
+      <div class="premium-extras-heading"><div><span class="eyebrow">Premium powers</span><h3>Exclusive tools</h3></div></div>
+      <div class="premium-grid">
+        <div class="premium-tool">
+          <span class="premium-tool__icon">📚</span>
+          <h4 id="streakTitle">Reading Streak</h4>
+          <p id="streakValue">0 days</p>
+          <small>Read at least one premium article per day to build your streak.</small>
+        </div>
+        <div class="premium-tool">
+          <span class="premium-tool__icon">📖</span>
+          <h4>Articles Read</h4>
+          <p id="articlesReadCount">0</p>
+          <small>Total premium articles you've opened.</small>
+        </div>
+        <div class="premium-tool">
+          <span class="premium-tool__icon">🕒</span>
+          <h4>Reading Time</h4>
+          <p id="readingMinutes">0 min</p>
+          <small>Estimated time spent reading premium content.</small>
+        </div>
+        <div class="premium-tool">
+          <span class="premium-tool__icon">🏷️</span>
+          <h4>Saved Categories</h4>
+          <p id="favoriteCategory">—</p>
+          <small>Your most-read news category.</small>
+        </div>
+        <div class="premium-tool premium-tool--wide">
+          <span class="premium-tool__icon">🔖</span>
+          <h4>Continue Reading</h4>
+          <div id="continueReadingList" class="continue-reading-list"><em>No in-progress articles yet. Open an article in News to begin.</em></div>
+        </div>
+        <div class="premium-tool premium-tool--wide">
+          <span class="premium-tool__icon">🔍</span>
+          <h4>Premium Search</h4>
+          <div class="premium-search">
+            <input id="premiumSearchInput" type="search" placeholder="Search your saved articles & history...">
+            <button id="premiumSearchBtn" class="btn primary" type="button">Search</button>
+          </div>
+          <div id="premiumSearchResults" class="premium-search-results"></div>
+        </div>
+        <div class="premium-tool premium-tool--wide">
+          <span class="premium-tool__icon">📰</span>
+          <h4>Your Reading History</h4>
+          <ul id="readingHistoryList" class="reading-history-list"></ul>
+        </div>
+      </div>
+    </section>
+    <section class="dashboard-section dashboard-bottom-grid"><div><span class="eyebrow">Preferences</span><h3>Reading settings</h3><label class="setting-row"><span><strong>Ad-free browsing</strong><small>Hide supported promotional placements.</small></span><input id="adFreeToggle" type="checkbox"></label><label class="setting-row"><span><strong>Compact cards</strong><small>Show more articles with a denser layout.</small></span><input id="compactToggle" type="checkbox"></label><label class="setting-row"><span><strong>Notifications</strong><small>Show reminders to keep your streak alive.</small></span><input id="notifyToggle" type="checkbox"></label></div><div><span class="eyebrow">Payment history</span><h3>Transactions</h3><ul id="payerTransactions" class="transaction-list"></ul></div></section>
   </section></main>
-  <script src="dashboard.js?v=4"></script>
+  <section class="contact-section">
+        <div class="contact-container">
+            <h2>What would you like to see next</h2>
+            <p>Have a contribution or feedback? Send us a message below.</p>
+            <br>
+            <form id="contact-form" class="contact-form">
+                <div class="form-group">
+                    <label for="contact-name">Name</label>
+                    <input type="text" id="contact-name" name="name" required placeholder="Your Name" />
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-email">Email</label>
+                    <input type="email" id="contact-email" name="email" required placeholder="your.email@example.com" />
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-subject">Subject (Optional)</label>
+                    <input type="text" id="contact-subject" name="subject" placeholder="Subject of your message" />
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-message">Message</label>
+                    <textarea id="contact-message" name="message" required placeholder="Your message here..." rows="5"></textarea>
+                </div>
+
+                <button type="submit" class="submit-btn">Send Message</button>
+                <div id="contact-status" class="status-message"></div>
+            </form>
+        </div>
+    </section>
+  <script src="dashboard.js?v=7"></script>
+  <script src="contact.js?v=2"></script>
 </body>
 </html>

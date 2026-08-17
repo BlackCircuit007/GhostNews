@@ -234,8 +234,10 @@ app.post('/api/login', (req, res) => {
     return res.status(400).json({ ok: false, message: 'Phone number required' });
   }
 
-  // Check if phone exists in ledger (verified payments)
-  const userTransactions = ledger.filter(l => l.phone === phone);
+  // Check if phone exists in ledger (verified payments), newest first
+  const userTransactions = ledger
+    .filter(l => l.phone === phone)
+    .sort((a, b) => new Date(b.verifiedAt || b.date || 0) - new Date(a.verifiedAt || a.date || 0));
   
   if(userTransactions.length === 0) {
     return res.status(401).json({ ok: false, message: 'Phone number not found. Please make a payment first.' });
@@ -244,14 +246,21 @@ app.post('/api/login', (req, res) => {
   // Create a session token for this login
   const sessionToken = crypto.randomBytes(16).toString('hex');
 
+  // Subscription is valid for 30 days from the most recent verified payment
+  const latest = userTransactions[0];
+  const verifiedAt = latest.verifiedAt || latest.date || new Date().toISOString();
+  const expiresAt = new Date(new Date(verifiedAt).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const expired = Date.now() > new Date(expiresAt).getTime();
+
   // User found - return their transaction details and session
-  console.log('Login successful for phone:', phone, 'session:', sessionToken);
+  console.log('Login successful for phone:', phone, 'session:', sessionToken, 'expiresAt:', expiresAt, 'expired:', expired);
   return res.json({ 
     ok: true, 
     message: 'Login successful',
     phone: phone,
     transactions: userTransactions,
-    status: 'payer',
+    status: expired ? 'expired' : 'payer',
+    subscription: { verifiedAt, expiresAt, expired, validDays: 30 },
     sessionToken: sessionToken
   });
 });

@@ -116,12 +116,12 @@ if (searchForm && searchInput) {
         openCustomSearch(query);
     });
 }
-
+    
 // Contact Form Handler
 const contactForm = document.getElementById("contact-form");
 const contactStatus = document.getElementById("contact-status");
 
-if (contactForm) {
+if (contactForm && !document.querySelector('script[src*="contact.js"]')) {
     contactForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         
@@ -163,6 +163,17 @@ if (contactForm) {
             contactStatus.style.color = "red";
             console.error("Contact form error:", error);
         }
+    });
+}
+
+// Hamburger nav toggle
+const navToggle = document.getElementById("navToggle");
+const navLinks = document.getElementById("navLinks");
+if (navToggle && navLinks) {
+    navToggle.addEventListener("click", () => {
+        const isOpen = navLinks.classList.toggle("open");
+        navToggle.classList.toggle("active", isOpen);
+        navToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
     });
 }
 

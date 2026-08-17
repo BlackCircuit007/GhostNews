@@ -19,9 +19,54 @@
       "id": "tx_1786726264609",
       "verified": true,
       "verifiedAt": "2026-08-14T16:51:04.609Z"
+    },
+    {
+      "phone": "07039245529",
+      "amount": "5000",
+      "ref": "opay",
+      "date": "2026-08-14T22:58:40.982Z",
+      "token": "fbb8f19c0f2322bbb7e1b8ce",
+      "id": "tx_1786748337985",
+      "verified": true,
+      "verifiedAt": "2026-08-14T22:58:57.985Z"
+    },
+    {
+      "phone": "0816738462",
+      "amount": "5000",
+      "ref": "opay",
+      "date": "2026-08-15T17:33:11.361Z",
+      "token": "55367c97615202c8f9df9822",
+      "id": "tx_1786815214451",
+      "verified": true,
+      "verifiedAt": "2026-08-15T17:33:34.451Z"
+    },
+    {
+      "phone": "0801234567",
+      "amount": "5000",
+      "ref": "opay",
+      "date": "2026-08-17T19:50:01.309Z",
+      "token": "b061782d704c99a50e9e5de5",
+      "id": "tx_1786996228750",
+      "verified": true,
+      "verifiedAt": "2026-08-17T19:50:28.751Z"
     }
   ],
-  "pending": {},
+  "pending": {
+    "384aea18da36e3b0efaa3f06": {
+      "phone": "09046799115",
+      "amount": "5000",
+      "ref": "opay",
+      "date": "2026-08-14T22:18:52.471Z",
+      "token": "384aea18da36e3b0efaa3f06"
+    },
+    "ede4511b97f79cbe05e855c1": {
+      "phone": "09046799115",
+      "amount": "5000",
+      "ref": "opay",
+      "date": "2026-08-14T22:56:08.497Z",
+      "token": "ede4511b97f79cbe05e855c1"
+    }
+  },
   "verifiedTokens": {
     "fe525a33419e2e8247a23853": {
       "phone": "08012345678",
@@ -42,6 +87,36 @@
       "id": "tx_1786726264609",
       "verified": true,
       "verifiedAt": "2026-08-14T16:51:04.609Z"
+    },
+    "fbb8f19c0f2322bbb7e1b8ce": {
+      "phone": "07039245529",
+      "amount": "5000",
+      "ref": "opay",
+      "date": "2026-08-14T22:58:40.982Z",
+      "token": "fbb8f19c0f2322bbb7e1b8ce",
+      "id": "tx_1786748337985",
+      "verified": true,
+      "verifiedAt": "2026-08-14T22:58:57.985Z"
+    },
+    "55367c97615202c8f9df9822": {
+      "phone": "0816738462",
+      "amount": "5000",
+      "ref": "opay",
+      "date": "2026-08-15T17:33:11.361Z",
+      "token": "55367c97615202c8f9df9822",
+      "id": "tx_1786815214451",
+      "verified": true,
+      "verifiedAt": "2026-08-15T17:33:34.451Z"
+    },
+    "b061782d704c99a50e9e5de5": {
+      "phone": "0801234567",
+      "amount": "5000",
+      "ref": "opay",
+      "date": "2026-08-17T19:50:01.309Z",
+      "token": "b061782d704c99a50e9e5de5",
+      "id": "tx_1786996228750",
+      "verified": true,
+      "verifiedAt": "2026-08-17T19:50:28.751Z"
     }
   }
 }

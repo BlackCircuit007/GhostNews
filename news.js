@@ -8,7 +8,6 @@
 // 4. The app will show mock data if the API is unavailable
 
 const apikey = "pub_91280638adbd44d29938ea34a78b9e64"; // TODO: Replace with valid API key from newsdata.io
-
 const categories = {
     local:{
     label:"Enugu News",
@@ -104,6 +103,22 @@ function getLoggedInPhone(){
     return localStorage.getItem("pressclub_phone") || "";
 }
 
+// Per-user storage helpers
+function getTxsKey(){ const phone = getLoggedInPhone(); return phone ? `pressclub_txs_${phone}` : 'pressclub_txs'; }
+function getAdfreeKey(){ const phone = getLoggedInPhone(); return phone ? `pressclub_adfree_${phone}` : 'pressclub_adfree'; }
+function getCompactKey(){ const phone = getLoggedInPhone(); return phone ? `pressclub_compact_${phone}` : 'pressclub_compact'; }
+function getNotifyKey(){ const phone = getLoggedInPhone(); return phone ? `pressclub_notify_${phone}` : 'pressclub_notify'; }
+function getSubKey(){ const phone = getLoggedInPhone(); return phone ? `pressclub_sub_${phone}` : 'pressclub_sub'; }
+
+function getOwnTransactions(){ try { return JSON.parse(localStorage.getItem(getTxsKey()) || '[]'); } catch { return []; } }
+function saveOwnTransactions(txs){ localStorage.setItem(getTxsKey(), JSON.stringify(txs)); }
+
+// Per-user storage key so each account has its own pinned articles
+function getPinnedKey(){
+    const phone = getLoggedInPhone();
+    return phone ? `pressclub_pinned_articles_${phone}` : 'pressclub_pinned_articles';
+}
+
 function setPayer(flag){
     localStorage.setItem("pressclub_isPayer", flag?"1":"0");
     updatePayerUI();
@@ -153,10 +168,18 @@ async function autoLoginWithPhone(phone){
             localStorage.setItem('pressclub_isPayer', '1');
             localStorage.setItem('pressclub_phone', data.phone);
             localStorage.setItem('pressclub_session', data.sessionToken || '');
-            localStorage.setItem('pressclub_txs', JSON.stringify(data.transactions || []));
+            // Store transactions and subscription per-user
+            saveOwnTransactions(data.transactions || []);
+            localStorage.setItem(getSubKey(), JSON.stringify(data.subscription || null));
+            if(data.status === 'expired'){
+                localStorage.setItem('pressclub_isPayer', '0');
+                localStorage.setItem('pressclub_expired', '1');
+            } else {
+                localStorage.removeItem('pressclub_expired');
+            }
             updatePayerUI();
             console.log('Auto-login successful for phone:', data.phone);
-            return true;
+            return data.status !== 'expired';
         } else {
             console.warn('Auto-login failed:', data.message);
             return false;
@@ -208,10 +231,21 @@ document.addEventListener("click", (e) => {
                 localStorage.setItem('pressclub_isPayer', '1');
                 localStorage.setItem('pressclub_phone', data.phone);
                 localStorage.setItem('pressclub_session', data.sessionToken || '');
-                localStorage.setItem('pressclub_txs', JSON.stringify(data.transactions || []));
+                saveOwnTransactions(data.transactions || []);
+                localStorage.setItem(getSubKey(), JSON.stringify(data.subscription || {}));
+                if(data.status === 'expired'){
+                    localStorage.setItem('pressclub_isPayer', '0');
+                    localStorage.setItem('pressclub_expired', '1');
+                    alert('Your subscription has expired. Please renew to continue enjoying premium access.');
+                    updatePayerUI();
+                    return;
+                }
+                localStorage.removeItem('pressclub_expired');
                 closeLoginModal();
                 updatePayerUI();
-                alert('Login successful! Welcome back, ' + data.phone);
+                // Navigate to dashboard so the user sees their new premium access
+                alert('Login successful! Taking you to your dashboard...');
+                location.href = 'dashboard.html';
             } else {
                 alert(data.message || 'Login failed. Please make a payment first.');
             }
@@ -241,7 +275,8 @@ document.addEventListener("click", (e) => {
             return;
         }
 
-        showStatus('Requesting verification email...');
+        setVerificationButtonLoading(true);
+        setVerificationStatus('Sending your verification request. Please wait...');
 
         // request owner email verification
         fetch('/api/request-verify', {
@@ -250,15 +285,14 @@ document.addEventListener("click", (e) => {
             body: JSON.stringify({ phone, amount, ref })
         }).then(r=>r.json())
         .then(result=>{
-            showStatus('');
             if(result && result.ok){
                 // show preview link when using Ethereal (dev)
                 if(result.preview){
                     alert('Verification email sent (dev preview): ' + result.preview);
                 } else if(result.emailSent){
-                    alert('Verification email sent to the site owner. You will be enabled after owner confirms.');
+                    setVerificationStatus('Request received. The owner has been emailed. Waiting for payment confirmation...');
                 } else {
-                    alert(result.message || 'Verification request saved, but email delivery is unavailable. Please contact the site owner directly.');
+                    setVerificationStatus(result.message || 'Verification request saved. Waiting for the owner to confirm it manually.');
                 }
 
                 // store a pending token + phone locally to poll the server (use token returned if present)
@@ -270,35 +304,44 @@ document.addEventListener("click", (e) => {
                 let attempts = 0;
                 const poll = setInterval(()=>{
                     attempts++;
+                    setVerificationStatus(`Verification request is pending. Checking for owner confirmation... (${attempts})`);
                     fetch(`/api/check-token?token=${encodeURIComponent(token)}`).then(r=>r.json()).then(s=>{
                         if(s.verified){
                             clearInterval(poll);
+                            setVerificationStatus('Payment confirmed. Activating your premium access...');
                             // Immediately auto-login the user with the phone number used for payment
                             autoLoginWithPhone(phone).then((loggedIn)=>{
-                                const txs = JSON.parse(localStorage.getItem('pressclub_txs')||'[]');
+                                const txs = getOwnTransactions();
                                 txs.unshift({ phone, amount, ref, date: new Date().toISOString(), id: s.transactionId || token });
-                                localStorage.setItem('pressclub_txs', JSON.stringify(txs));
+                                saveOwnTransactions(txs);
                                 closePaymentModal();
                                 localStorage.removeItem('pressclub_pending_token');
+                                localStorage.removeItem('pressclub_pending_phone');
+                                setVerificationButtonLoading(false);
+                                setVerificationStatus('');
                                 if(loggedIn){
-                                    alert('Payment verified! You are now logged in as ' + phone + ' and have payer access.');
+                                    alert('Payment verified! Taking you to your dashboard...');
+                                    location.href = 'dashboard.html';
                                 } else {
                                     alert('Payment verified by owner. You are now a payer.');
                                 }
                             });
                         } else if(attempts > 30){
                             clearInterval(poll);
-                            alert('Verification pending. Owner has not yet confirmed.');
+                            setVerificationStatus('Still waiting for confirmation. You can safely close this page; PressClub will check again when you return.');
                         }
                     }).catch(()=>{});
                 }, 3000);
 
             } else {
+                setVerificationButtonLoading(false);
+                setVerificationStatus('');
                 alert('Could not send verification email.');
             }
         })
         .catch(err=>{
-            showStatus('');
+            setVerificationButtonLoading(false);
+            setVerificationStatus('');
             console.error(err);
             alert('Verification request failed due to network or server error.');
         });
@@ -315,7 +358,7 @@ function requirePayer(action){
 }
 
 function getPinnedArticles(){
-    try { return JSON.parse(localStorage.getItem('pressclub_pinned_articles') || '[]'); }
+    try { return JSON.parse(localStorage.getItem(getPinnedKey()) || '[]'); }
     catch { return []; }
 }
 
@@ -328,7 +371,7 @@ function togglePin(id){
     const existing = pins.findIndex(pin => pin.id === id);
     if(existing >= 0) pins.splice(existing, 1);
     else pins.unshift({ id: article.id, title: article.title, summary: article.summary, content: article.content, author: article.author, date: article.date, url: article.url, image: article.image });
-    localStorage.setItem('pressclub_pinned_articles', JSON.stringify(pins.slice(0, 50)));
+    localStorage.setItem(getPinnedKey(), JSON.stringify(pins.slice(0, 50)));
     renderArticles();
     showStatus(existing >= 0 ? 'Article removed from your dashboard.' : 'Article saved to your dashboard.');
 }
@@ -372,6 +415,22 @@ function truncate(text, length = 180){
         ? text.substring(0, length).trim() + "..."
         : text;
 
+}
+
+function setVerificationStatus(message){
+    showStatus(message);
+    const paymentStatus = document.getElementById('paymentStatus');
+    if(paymentStatus){
+        paymentStatus.textContent = message;
+        paymentStatus.style.display = message ? 'block' : 'none';
+    }
+}
+
+function setVerificationButtonLoading(loading){
+    const button = document.getElementById(CONFIRM_PAID_BTN_ID);
+    if(!button) return;
+    button.disabled = loading;
+    button.textContent = loading ? 'Verification pending...' : 'Verify Payment';
 }
 
 function isRestrictedFeedContent(content){
@@ -539,6 +598,13 @@ const mockArticles = [
     }
 ];
 
+function getHistory(){
+    try { return JSON.parse(localStorage.getItem(getHistoryKey()) || '[]'); } catch { return []; }
+}
+function getReadingList(){
+    try { return JSON.parse(localStorage.getItem(getReadingKey()) || '[]'); } catch { return []; }
+}
+
 async function loadNews(){
 
     articles.innerHTML =
@@ -565,7 +631,11 @@ await fetchNews(
         articleList =
         results.map(normalize);
 
-        const savedArticle = requestedArticleId && getPinnedArticles().find(article => article.id === requestedArticleId);
+        const savedArticle = requestedArticleId && (
+            getPinnedArticles().find(article => article.id === requestedArticleId) ||
+            getHistory().find(article => article.id === requestedArticleId) ||
+            getReadingList().find(article => article.id === requestedArticleId)
+        );
         if(savedArticle && !articleList.some(article => article.id === savedArticle.id)){
             articleList.unshift(savedArticle);
         }
@@ -606,9 +676,27 @@ await fetchNews(
 
 }
 
+function applyUserPrefs(){
+    // Compact cards (per-user)
+    const isCompact = localStorage.getItem(getCompactKey()) === '1';
+    document.body.classList.toggle('compact-mode', isCompact);
+
+    // Ad-free mode (per-user)
+    const isAdFree = localStorage.getItem(getAdfreeKey()) === '1';
+    document.body.classList.toggle('ad-free-mode', isAdFree);
+    if(isAdFree){
+        document.querySelectorAll('[data-ad], .ad-placeholder, .promo-banner, .ad-slot').forEach(el => el.hidden = true);
+    } else {
+        document.querySelectorAll('[data-ad], .ad-placeholder, .promo-banner, .ad-slot').forEach(el => el.hidden = false);
+    }
+}
+
 function renderArticles(){
 
     articles.innerHTML = "";
+
+    // Apply per-user preferences (compact + ad-free)
+    applyUserPrefs();
 
     articleList.forEach(article => {
 
@@ -687,6 +775,104 @@ function getArticle(id){
 
 }
 
+function getStatsKey(){ const phone = getLoggedInPhone(); return phone ? `pressclub_stats_${phone}` : 'pressclub_stats'; }
+function getHistoryKey(){ const phone = getLoggedInPhone(); return phone ? `pressclub_history_${phone}` : 'pressclub_history'; }
+function getReadingKey(){ const phone = getLoggedInPhone(); return phone ? `pressclub_reading_${phone}` : 'pressclub_reading'; }
+
+function trackArticleRead(article){
+    if(!isPayer() || !article) return;
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        // History (store full details so the article can be re-opened later)
+        const history = JSON.parse(localStorage.getItem(getHistoryKey()) || '[]');
+        const existing = history.findIndex(h => h.id === article.id);
+        const entry = { id: article.id, title: article.title, summary: article.summary || '', content: article.content || '', author: article.author, date: today, url: article.url || '', image: article.image || '', category };
+        if(existing >= 0) history.splice(existing, 1);
+        history.unshift(entry);
+        localStorage.setItem(getHistoryKey(), JSON.stringify(history.slice(0, 100)));
+        // Stats / streak
+        const stats = JSON.parse(localStorage.getItem(getStatsKey()) || '{}');
+        const readDates = stats.readDates || [];
+        if(!readDates.includes(today)) readDates.push(today);
+        stats.readDates = readDates.slice(-90);
+        stats.lastRead = today;
+        localStorage.setItem(getStatsKey(), JSON.stringify(stats));
+        // Reading progress
+        const reading = JSON.parse(localStorage.getItem(getReadingKey()) || '[]');
+        const readingIdx = reading.findIndex(r => r.id === article.id);
+        const readingEntry = { id: article.id, title: article.title, summary: article.summary || '', content: article.content || '', category, progress: 25, updated: Date.now() };
+        if(readingIdx >= 0) reading.splice(readingIdx, 1);
+        reading.unshift(readingEntry);
+        localStorage.setItem(getReadingKey(), JSON.stringify(reading.slice(0, 20)));
+    } catch(err){ /* silent */ }
+}
+
+function showSubscriptionNotice(){
+    if(!isPayer()) return;
+    try{
+        const sub = JSON.parse(localStorage.getItem(getSubKey()) || 'null');
+        if(!sub || !sub.expiresAt) return;
+        const expires = new Date(sub.expiresAt);
+        const daysLeft = Math.max(0, Math.ceil((expires.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+        if(sub.expired || daysLeft === 0){
+            showStatus('⚠️ Your premium subscription has expired. Please make a new payment to renew your access.');
+        } else if(daysLeft <= 3){
+            showStatus(`⏳ Your premium subscription expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${expires.toLocaleDateString()}). Renew soon to keep your access.`);
+        }
+    }catch(err){ /* silent */ }
+}
+
+function showStreakReminder(){
+    if(!isPayer()) return;
+    if(localStorage.getItem(getNotifyKey()) !== '1') return;
+    try{
+        const stats = JSON.parse(localStorage.getItem(getStatsKey()) || '{}');
+        const readDates = stats.readDates || [];
+        const today = new Date().toISOString().split('T')[0];
+        if(readDates.includes(today)) return; // already read today
+        // Compute current streak
+        const dates = [...new Set(readDates)].sort().reverse();
+        let streak = 0;
+        let cursor = new Date();
+        cursor.setDate(cursor.getDate() - 1);
+        let cursorStr = cursor.toISOString().split('T')[0];
+        for(let i = 0; i < dates.length; i++){
+            if(dates[i] === cursorStr){
+                streak++;
+                const d = new Date(cursorStr);
+                d.setDate(d.getDate() - 1);
+                cursorStr = d.toISOString().split('T')[0];
+            } else {
+                break;
+            }
+        }
+        if(streak > 0){
+            // Only remind every 6 hours
+            const lastReminder = stats.lastReminder || 0;
+            if(Date.now() - lastReminder < 6 * 60 * 60 * 1000) return;
+            stats.lastReminder = Date.now();
+            localStorage.setItem(getStatsKey(), JSON.stringify(stats));
+            showStatus(`🔥 You're on a ${streak}-day reading streak! Read an article today to keep it going.`);
+        }
+    }catch(err){ /* silent */ }
+}
+function markArticleDone(article){
+    if(!isPayer() || !article) return;
+    try{
+        const reading = JSON.parse(localStorage.getItem(getReadingKey()) || '[]');
+        const idx = reading.findIndex(r => r.id === article.id);
+        if(idx >= 0){
+            reading[idx].progress = 100;
+            reading[idx].completed = true;
+            localStorage.setItem(getReadingKey(), JSON.stringify(reading));
+        } else {
+            reading.unshift({ id: article.id, title: article.title, summary: article.summary || '', content: article.content || '', category, progress: 100, completed: true, updated: Date.now() });
+            localStorage.setItem(getReadingKey(), JSON.stringify(reading.slice(0, 20)));
+        }
+        showStatus('✅ Marked as read.');
+    }catch(err){ /* silent */ }
+}
+
 async function showArticle(id){
 
     const article=getArticle(id);
@@ -699,6 +885,11 @@ async function showArticle(id){
     }
 
     // Check if user is a payer; show full article only to payers
+    if(isPayer()){
+        // Track premium reading for payers
+        trackArticleRead(article);
+    }
+
     if(!isPayer()){
         // Show preview to non-payers with paywall
         detail.innerHTML=`
@@ -787,15 +978,19 @@ async function showArticle(id){
 
             <br>
 
+            <div class="detail-actions">
+            <button class="btn primary done-btn" data-id="${article.id}" type="button">✅ Mark as read</button>
+
             <a
             href="${article.url}"
             target="_blank"
             rel="noopener noreferrer"
-            class="btn primary">
+            class="btn secondary">
 
             Read full article at publisher
 
             </a>
+            </div>
 
         `;
     }
@@ -992,6 +1187,11 @@ articles.addEventListener("click",(e)=>{
     const doc=e.target.closest(".doc-btn");
 
     const pin=e.target.closest('.pin-btn');
+    const done=e.target.closest('.done-btn');
+
+    if(done){
+        markArticleDone(getArticle(done.dataset.id));
+    }
 
     if(read){
 
@@ -1080,6 +1280,12 @@ if(!isPayer() && getLoggedInPhone()){
 
 loadNews();
 
+// Show subscription expiry awareness for payers
+showSubscriptionNotice();
+
+// Show streak reminder for payers with notifications enabled
+showStreakReminder();
+
 // ------------------------------------------------------------------
 // Resume verification polling on page load.
 // If a payer submitted a payment, closed the tab, and the owner
@@ -1107,9 +1313,9 @@ loadNews();
         clearInterval(poll);
         const phone = pendingPhone;
         autoLoginWithPhone(phone).then((loggedIn)=>{
-          const txs = JSON.parse(localStorage.getItem('pressclub_txs')||'[]');
+          const txs = getOwnTransactions();
           txs.unshift({ phone, amount: s.amount || '', ref: s.ref || '', date: new Date().toISOString(), id: s.transactionId || pendingToken });
-          localStorage.setItem('pressclub_txs', JSON.stringify(txs));
+          saveOwnTransactions(txs);
           localStorage.removeItem('pressclub_pending_token');
           localStorage.removeItem('pressclub_pending_phone');
           if(loggedIn){
@@ -1125,3 +1331,14 @@ loadNews();
     }).catch(()=>{});
   }, 3000);
 })();
+
+// Hamburger nav toggle
+const navToggle = document.getElementById('navToggle');
+const navLinks = document.getElementById('navLinks');
+if(navToggle && navLinks){
+  navToggle.addEventListener('click', () => {
+    const isOpen = navLinks.classList.toggle('open');
+    navToggle.classList.toggle('active', isOpen);
+    navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+}
