@@ -65,6 +65,14 @@ loadData();
 // Lazy transporter creation - only creates when first email is sent (NOT at startup)
 let transporterPromise = null;
 
+// Short timeouts so that a blocked SMTP outbound port (common on Render free tier,
+// Vercel, Netlify) fails fast instead of hanging the request for minutes.
+const SMTP_TIMEOUTS = {
+  connectionTimeout: 8000, // TCP connect
+  greetingTimeout: 8000,   // SMTP greeting
+  socketTimeout: 15000     // data send
+};
+
 async function getTransporter(){
   if(transporterPromise) return transporterPromise;
   
@@ -75,14 +83,98 @@ async function getTransporter(){
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
       secure: process.env.SMTP_SECURE === '1',
-      auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
+      auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+      connectionTimeout: SMTP_TIMEOUTS.connectionTimeout,
+      greetingTimeout: SMTP_TIMEOUTS.greetingTimeout,
+      socketTimeout: SMTP_TIMEOUTS.socketTimeout
     });
     return transporterPromise;
   }
   
-  // No SMTP configured - return null, API will work without email
+  // No SMTP configured - send email via HTTPS API fallback instead
   transporterPromise = null;
   return null;
+}
+
+// ------------------------------------------------------------------
+// Universal email sender.
+//
+// Deployed hosting providers (Render free tier, Vercel, Netlify, etc.)
+// commonly block outbound SMTP, but you can still send through the
+// Brevo HTTP API on port 443 (which is never blocked). Strategy:
+//   1) Try SMTP (fast on normal hosts) with a short timeout.
+//   2) If SMTP times out / fails, fall back to the Brevo HTTP API.
+// ------------------------------------------------------------------
+async function sendEmail({ to, replyTo, subject, html }){
+  // 1) Try SMTP first when configured
+  try{
+    const transporter = await getTransporter();
+    if(transporter){
+      const nodemailer = require('nodemailer');
+      const info = await transporter.sendMail({
+        from: MAIL_FROM,
+        to,
+        replyTo,
+        subject,
+        html
+      });
+      console.log('Email sent via SMTP:', { to, subject });
+      return { ok: true, via: 'smtp', info };
+    }
+  }catch(smtpErr){
+    console.error('SMTP failed (will try HTTPS API):', smtpErr.message);
+    // Fall through to the HTTP API
+  }
+
+  // 2) Fallback: Brevo HTTP API (HTTPS / port 443 - allowed on all hosts)
+  //    Requires a Brevo REST API key (BREVO_API_KEY, starts with xkeysib-...).
+  //    The SMTP key (SMTP_PASS) cannot be used with the REST API.
+  const brevoApiKey = process.env.BREVO_API_KEY || process.env.SMTP_PASS;
+  if(brevoApiKey && OWNER_EMAIL){
+    try{
+      // Parse MAIL_FROM ("Name <email>") into parts; fall back to OWNER_EMAIL
+      let senderName = 'PressClub';
+      let fromEmail = OWNER_EMAIL;
+      const fromMatch = String(MAIL_FROM).match(/^(.*)\s*<([^>]+)>$/);
+      if(fromMatch){
+        senderName = fromMatch[1].trim().replace(/^"|"$/g, '') || senderName;
+        fromEmail = fromMatch[2].trim() || fromEmail;
+      }
+
+      const payload = {
+        sender: { name: senderName, email: fromEmail },
+        to: [{ email: to, name: to }],
+        subject,
+        htmlContent: html
+      };
+      if(replyTo) payload.replyTo = { email: replyTo };
+
+      const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+          'api-key': brevoApiKey
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if(!resp.ok){
+        const body = await resp.text();
+        throw new Error('Brevo HTTP API error ' + resp.status + ': ' + body);
+      }
+
+      console.log('Email sent via HTTPS API:', to);
+      return { ok: true, via: 'http' };
+    }catch(apiErr){
+      console.error('Brevo HTTP API send failed:', apiErr.message);
+      return { ok: false, via: 'http', error: apiErr };
+    }
+  }
+
+  // 3) No email channel available
+  console.warn('No email channel available – email not sent to:', to);
+  return { ok: false, via: 'none', error: new Error('No SMTP / API configured') };
 }
 
 app.post('/api/request-verify', async (req, res) => {
@@ -96,17 +188,8 @@ app.post('/api/request-verify', async (req, res) => {
   saveData();
 
   try{
-    const transporter = await getTransporter();
-    if(!transporter){
-      // No SMTP configured - just return the token for direct verification
-      console.log('Payment verification request (no email):', { phone, amount, ref, token });
-      return res.json({ ok: true, token, emailSent: false, message: 'Verification request saved, but email is not configured.' });
-    }
-
     const verifyUrl = `${req.protocol}://${req.get('host')}/verify/${token}`;
-    const nodemailer = require('nodemailer');
-    const info = await transporter.sendMail({
-      from: MAIL_FROM,
+    const result = await sendEmail({
       to: OWNER_EMAIL,
       subject: `Payment verification request: ${ref}`,
       html: `<p>Payment request received:</p>
@@ -118,9 +201,12 @@ app.post('/api/request-verify', async (req, res) => {
              <p><a href="${verifyUrl}">Click here to review and verify this payment</a></p>`
     });
 
-    const preview = nodemailer.getTestMessageUrl(info) || null;
-    console.log('Payment verification request:', { phone, amount, ref, token, preview: !!preview });
-    return res.json({ ok: true, token, emailSent: true, preview });
+    console.log('Payment verification request:', { phone, amount, ref, token, via: result.via });
+    if(result.ok){
+      return res.json({ ok: true, token, emailSent: true, via: result.via, preview: null });
+    }
+    // Email failed on both SMTP + API, but request was saved for manual review
+    return res.json({ ok: true, token, emailSent: false, message: 'Verification request saved, but email delivery failed. The owner can review it manually.' });
   }
   catch(err){
     console.error('Email send error', err);
@@ -193,32 +279,25 @@ app.post('/api/contact', async (req, res) => {
   }
 
   try {
-    const transporter = await getTransporter();
-    
-    if(transporter){
-      // Send email to owner
-      const nodemailer = require('nodemailer');
-      const info = await transporter.sendMail({
-        from: MAIL_FROM,
-        to: OWNER_EMAIL,
-        replyTo: email,
-        subject: subject || `New contact form submission from ${name}`,
-        html: `<h2>New Contact Form Submission</h2>
-               <p><strong>From:</strong> ${name} (${email})</p>
-               <p><strong>Subject:</strong> ${subject || 'N/A'}</p>
-               <hr>
-               <p><strong>Message:</strong></p>
-               <p>${message.replace(/\n/g, '<br>')}</p>`
-      });
-      console.log('Contact email sent:', { name, email, subject, preview: !!nodemailer.getTestMessageUrl(info) });
-    } else {
-      console.log('Contact form received (no email sent - SMTP not configured):', { name, email, subject });
-    }
-    
+    const result = await sendEmail({
+      to: OWNER_EMAIL,
+      replyTo: email,
+      subject: subject || `New contact form submission from ${name}`,
+      html: `<h2>New Contact Form Submission</h2>
+             <p><strong>From:</strong> ${name} (${email})</p>
+             <p><strong>Subject:</strong> ${subject || 'N/A'}</p>
+             <hr>
+             <p><strong>Message:</strong></p>
+             <p>${message.replace(/\n/g, '<br>')}</p>`
+    });
+
+    // Always succeed so the user gets feedback (even if delivery channel is down).
+    // The status reflects whether it actually went out.
     return res.json({ 
       ok: true, 
-      message: transporter ? 'Email sent successfully' : 'Message received, but email delivery is not configured yet.',
-      emailSent: Boolean(transporter)
+      via: result.via || 'none',
+      message: result.ok ? 'Email sent successfully' : 'Message received, but email delivery failed on this host. The message was still recorded.',
+      emailSent: result.ok
     });
   } catch(err) {
     console.error('Contact email send error', err);
