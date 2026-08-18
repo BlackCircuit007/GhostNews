@@ -154,42 +154,6 @@ function closeLoginModal(){
     modal.setAttribute("aria-hidden","true");
 }
 
-// Auto-login with phone number after payment verification
-async function autoLoginWithPhone(phone){
-    try{
-        const response = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone })
-        });
-        const data = await response.json();
-        if(response.ok && data.ok){
-            // Store login session
-            localStorage.setItem('pressclub_isPayer', '1');
-            localStorage.setItem('pressclub_phone', data.phone);
-            localStorage.setItem('pressclub_session', data.sessionToken || '');
-            // Store transactions and subscription per-user
-            saveOwnTransactions(data.transactions || []);
-            localStorage.setItem(getSubKey(), JSON.stringify(data.subscription || null));
-            if(data.status === 'expired'){
-                localStorage.setItem('pressclub_isPayer', '0');
-                localStorage.setItem('pressclub_expired', '1');
-            } else {
-                localStorage.removeItem('pressclub_expired');
-            }
-            updatePayerUI();
-            console.log('Auto-login successful for phone:', data.phone);
-            return data.status !== 'expired';
-        } else {
-            console.warn('Auto-login failed:', data.message);
-            return false;
-        }
-    } catch(err){
-        console.error('Auto-login error:', err);
-        return false;
-    }
-}
-
 function openPaymentModal(){
     const modal = document.getElementById(PAYMENT_MODAL_ID);
     if(!modal) return;
@@ -308,24 +272,17 @@ document.addEventListener("click", (e) => {
                     fetch(`/api/check-token?token=${encodeURIComponent(token)}`).then(r=>r.json()).then(s=>{
                         if(s.verified){
                             clearInterval(poll);
-                            setVerificationStatus('Payment confirmed. Activating your premium access...');
-                            // Immediately auto-login the user with the phone number used for payment
-                            autoLoginWithPhone(phone).then((loggedIn)=>{
-                                const txs = getOwnTransactions();
-                                txs.unshift({ phone, amount, ref, date: new Date().toISOString(), id: s.transactionId || token });
-                                saveOwnTransactions(txs);
-                                closePaymentModal();
-                                localStorage.removeItem('pressclub_pending_token');
-                                localStorage.removeItem('pressclub_pending_phone');
-                                setVerificationButtonLoading(false);
-                                setVerificationStatus('');
-                                if(loggedIn){
-                                    alert('Payment verified! Taking you to your dashboard...');
-                                    location.href = 'dashboard.html';
-                                } else {
-                                    alert('Payment verified by owner. You are now a payer.');
-                                }
-                            });
+                            setVerificationStatus('Payment confirmed. Please log in with your phone number to access premium features.');
+                            const txs = getOwnTransactions();
+                            txs.unshift({ phone, amount, ref, date: new Date().toISOString(), id: s.transactionId || token });
+                            saveOwnTransactions(txs);
+                            closePaymentModal();
+                            localStorage.removeItem('pressclub_pending_token');
+                            localStorage.removeItem('pressclub_pending_phone');
+                            setVerificationButtonLoading(false);
+                            setVerificationStatus('');
+                            alert('Payment verified by owner! Please log in with your phone number to access premium features.');
+                            openLoginModal();
                         } else if(attempts > 30){
                             clearInterval(poll);
                             setVerificationStatus('Still waiting for confirmation. You can safely close this page; PressClub will check again when you return.');
@@ -374,13 +331,6 @@ function togglePin(id){
     localStorage.setItem(getPinnedKey(), JSON.stringify(pins.slice(0, 50)));
     renderArticles();
     showStatus(existing >= 0 ? 'Article removed from your dashboard.' : 'Article saved to your dashboard.');
-}
-
-async function restorePayerSession(){
-    if(isPayer()) return true;
-    const phone = getLoggedInPhone();
-    if(!phone) return false;
-    return autoLoginWithPhone(phone);
 }
 
 function formatDate(date){
@@ -879,11 +829,6 @@ async function showArticle(id){
 
     if(!article) return;
 
-    // A saved phone can restore a payer session after a page refresh.
-    if(!isPayer() && await restorePayerSession()){
-        renderArticles();
-    }
-
     // Check if user is a payer; show full article only to payers
     if(isPayer()){
         // Track premium reading for payers
@@ -1271,13 +1216,6 @@ updateHeader();
 
 updatePayerUI();
 
-// Restore access automatically when the browser still remembers the payer phone.
-if(!isPayer() && getLoggedInPhone()){
-  restorePayerSession().then(restored => {
-    if(restored && articleList.length) renderArticles();
-  });
-}
-
 loadNews();
 
 // Show subscription expiry awareness for payers
@@ -1312,18 +1250,13 @@ showStreakReminder();
       if(s.verified){
         clearInterval(poll);
         const phone = pendingPhone;
-        autoLoginWithPhone(phone).then((loggedIn)=>{
-          const txs = getOwnTransactions();
-          txs.unshift({ phone, amount: s.amount || '', ref: s.ref || '', date: new Date().toISOString(), id: s.transactionId || pendingToken });
-          saveOwnTransactions(txs);
-          localStorage.removeItem('pressclub_pending_token');
-          localStorage.removeItem('pressclub_pending_phone');
-          if(loggedIn){
-            alert('Your payment was verified! You are now logged in as ' + phone + ' with payer access.');
-          } else {
-            alert('Your payment was verified! You are now a payer.');
-          }
-        });
+        const txs = getOwnTransactions();
+        txs.unshift({ phone, amount: s.amount || '', ref: s.ref || '', date: new Date().toISOString(), id: s.transactionId || pendingToken });
+        saveOwnTransactions(txs);
+        localStorage.removeItem('pressclub_pending_token');
+        localStorage.removeItem('pressclub_pending_phone');
+        alert('Your payment was verified! Please log in with your phone number to access premium features.');
+        openLoginModal();
       } else if(attempts > 60){ // ~3 minutes of polling
         clearInterval(poll);
         // Keep the token so it resumes again on next page load

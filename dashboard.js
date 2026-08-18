@@ -187,13 +187,7 @@ async function verifyPayerWithServer(){
     const data = await response.json();
     
     if(response.ok && data.ok){
-      // Valid payer - update stored data
-      localStorage.setItem('pressclub_isPayer', '1');
-      localStorage.setItem('pressclub_phone', data.phone);
-      localStorage.setItem('pressclub_session', data.sessionToken || '');
-      saveOwnTransactions(data.transactions || []);
-      localStorage.setItem(getSubKey(), JSON.stringify(data.subscription || null));
-      
+      // Valid payer - just verify, don't auto-login
       if(data.status === 'expired'){
         localStorage.setItem('pressclub_isPayer', '0');
         localStorage.setItem('pressclub_expired', '1');
@@ -214,10 +208,6 @@ async function verifyPayerWithServer(){
     console.error('Failed to verify payer status:', err);
     return isPayer();
   }
-}
-
-function saveOwnTransactions(txs){
-  localStorage.setItem(getTxsKey(), JSON.stringify(txs));
 }
 
 async function initDashboard(){
