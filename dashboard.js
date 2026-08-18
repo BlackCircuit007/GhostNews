@@ -171,9 +171,62 @@ function showSubscriptionInfo(){
   if(info) info.textContent = message;
 }
 
-function initDashboard(){
+async function verifyPayerWithServer(){
+  // If not marked as payer locally, nothing to verify
+  if(!isPayer()) return false;
+  
+  const phone = getLoggedInPhone();
+  if(!phone) return false;
+  
+  try{
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    });
+    const data = await response.json();
+    
+    if(response.ok && data.ok){
+      // Valid payer - update stored data
+      localStorage.setItem('pressclub_isPayer', '1');
+      localStorage.setItem('pressclub_phone', data.phone);
+      localStorage.setItem('pressclub_session', data.sessionToken || '');
+      saveOwnTransactions(data.transactions || []);
+      localStorage.setItem(getSubKey(), JSON.stringify(data.subscription || null));
+      
+      if(data.status === 'expired'){
+        localStorage.setItem('pressclub_isPayer', '0');
+        localStorage.setItem('pressclub_expired', '1');
+        return false;
+      }
+      localStorage.removeItem('pressclub_expired');
+      return true;
+    } else {
+      // Not a valid payer - clear local flags
+      localStorage.removeItem('pressclub_isPayer');
+      localStorage.removeItem('pressclub_phone');
+      localStorage.removeItem('pressclub_session');
+      localStorage.removeItem('pressclub_expired');
+      return false;
+    }
+  } catch(err){
+    // Network error - keep local state but show a warning
+    console.error('Failed to verify payer status:', err);
+    return isPayer();
+  }
+}
+
+function saveOwnTransactions(txs){
+  localStorage.setItem(getTxsKey(), JSON.stringify(txs));
+}
+
+async function initDashboard(){
   const info = document.getElementById('payerInfo');
-  if(!isPayer()){
+  
+  // Verify payer status with the server before showing payer content
+  const verified = await verifyPayerWithServer();
+  
+  if(!verified || !isPayer()){
     info.innerHTML = 'This browser is not signed in to a premium account. <a class="btn primary" href="news.html">Go to News and log in</a>';
     document.getElementById('payerControls').innerHTML = '<div class="dashboard-profile"><span class="eyebrow">Premium access</span><h3>Sign in to see your reading list</h3><p>Use the phone number you paid with, then return here to read and save premium articles.</p><a class="btn primary" href="news.html">Log in or verify payment</a></div>';
     document.querySelectorAll('.payment-value, .dashboard-bottom-grid, .premium-extras').forEach(section => section.hidden = true);
