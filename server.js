@@ -62,6 +62,69 @@ function saveData(){
 
 loadData();
 
+// ------------------------------------------------------------------
+// Email configuration diagnostics
+// ------------------------------------------------------------------
+function checkEmailConfig(){
+  // SMTP is the primary channel. BREVO_API_KEY is optional (HTTPS fallback).
+  const requiredChecks = {
+    'OWNER_EMAIL': !!process.env.OWNER_EMAIL,
+    'MAIL_FROM': !!process.env.MAIL_FROM,
+    'SMTP_HOST': !!process.env.SMTP_HOST,
+    'SMTP_PORT': !!process.env.SMTP_PORT,
+    'SMTP_USER': !!process.env.SMTP_USER,
+    'SMTP_PASS': !!process.env.SMTP_PASS
+  };
+  const missing = Object.entries(requiredChecks)
+    .filter(([, ok]) => !ok)
+    .map(([key]) => key);
+
+  if(missing.length > 0){
+    console.warn('==========================================================');
+    console.warn('EMAIL CONFIG INCOMPLETE – missing env vars: ' + missing.join(', '));
+    console.warn('Emails will NOT be sent until these are set.');
+    console.warn('Set them in your hosting dashboard (e.g. Render -> Environment).');
+    console.warn('See .env.example for reference values.');
+    console.warn('==========================================================');
+    return { complete: false, missing, smtpReady: false };
+  }
+
+  const optionalWarning = process.env.BREVO_API_KEY
+    ? ''
+    : ' (BREVO_API_KEY not set – SMTP will be used, HTTPS API fallback disabled)';
+  console.log('Email configuration: OK (SMTP ready)' + optionalWarning);
+  return { complete: true, missing: [], smtpReady: true };
+}
+
+checkEmailConfig();
+
+// ------------------------------------------------------------------
+// Health / diagnostics endpoint – shows email config status
+// ------------------------------------------------------------------
+app.get('/api/health', (req, res) => {
+  const requiredKeys = ['OWNER_EMAIL', 'MAIL_FROM', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'];
+  const optionalKeys = ['BREVO_API_KEY'];
+  const present = {};
+  [...requiredKeys, ...optionalKeys].forEach(key => { present[key] = !!process.env[key]; });
+  const missingRequired = requiredKeys.filter(key => !process.env[key]);
+  const missingOptional = optionalKeys.filter(key => !process.env[key]);
+  const smtpReady = missingRequired.length === 0;
+  return res.json({
+    ok: true,
+    status: smtpReady ? 'ready' : 'email_not_configured',
+    time: new Date().toISOString(),
+    emailConfig: present,
+    smtpReady,
+    missingRequiredEnvVars: missingRequired,
+    missingOptionalEnvVars: missingOptional,
+    ledgerCount: ledger.length,
+    pendingCount: Object.keys(pending).length,
+    note: smtpReady
+      ? 'SMTP configured. Emails should be delivered.'
+      : 'Set the missing SMTP env vars in your hosting dashboard (Render -> Environment). See .env.example.'
+  });
+});
+
 // Lazy transporter creation - only creates when first email is sent (NOT at startup)
 let transporterPromise = null;
 
@@ -128,8 +191,8 @@ async function sendEmail({ to, replyTo, subject, html }){
 
   // 2) Fallback: Brevo HTTP API (HTTPS / port 443 - allowed on all hosts)
   //    Requires a Brevo REST API key (BREVO_API_KEY, starts with xkeysib-...).
-  //    The SMTP key (SMTP_PASS) cannot be used with the REST API.
-  const brevoApiKey = process.env.BREVO_API_KEY || process.env.SMTP_PASS;
+  //    The SMTP key (SMTP_PASS, starts with xsmtpsib-) CANNOT be used with the REST API.
+  const brevoApiKey = process.env.BREVO_API_KEY;
   if(brevoApiKey && OWNER_EMAIL){
     try{
       // Parse MAIL_FROM ("Name <email>") into parts; fall back to OWNER_EMAIL

@@ -1,0 +1,40 @@
+# Render.com deployment configuration for PressClub
+#
+# IMPORTANT: After deploying via this Blueprint file, you MUST set these values
+# in the Render dashboard (or they will be prompted when you deploy):
+#   Render Dashboard -> Your Service -> Environment -> Environment Variables
+#
+# Required vars (set in Render dashboard or when deploying this blueprint):
+#   OWNER_EMAIL  - your email that receives verification/contact notifications
+#   MAIL_FROM    - sender shown on outgoing emails, e.g. "PressClub <your@email.com>"
+#   SMTP_HOST    - smtp-relay.brevo.com
+#   SMTP_USER    - your Brevo SMTP login
+#   SMTP_PASS    - your Brevo SMTP key (xsmtpsib-...)
+#   BREVO_API_KEY - OPTIONAL: Brevo REST API key (xkeysib-...) for HTTPS fallback
+
+services:
+  - type: web
+    name: pressclub
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: OWNER_EMAIL
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_SECURE
+        value: 0
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false

@@ -151,8 +151,13 @@ if (contactForm && !document.querySelector('script[src*="contact.js"]')) {
             const data = await response.json();
             
             if (response.ok && data.ok) {
-                contactStatus.textContent = "✓ Message sent successfully! We'll get back to you soon.";
-                contactStatus.style.color = data.emailSent ? "green" : "#b45309";
+                if(data.emailSent){
+                    contactStatus.textContent = "✓ Message sent successfully! We'll get back to you soon.";
+                    contactStatus.style.color = "green";
+                } else {
+                    contactStatus.textContent = "✓ Message received! But email delivery isn't configured yet on the server. Please try again later.";
+                    contactStatus.style.color = "#b45309";
+                }
                 contactForm.reset();
             } else {
                 contactStatus.textContent = "✗ Failed to send message: " + (data.message || "Unknown error");
