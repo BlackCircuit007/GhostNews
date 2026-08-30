@@ -1,0 +1,102 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Status - PressClub</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="stylesheet" href="index.css">
+    <style>
+        body{font-family:Arial,sans-serif;background:linear-gradient(180deg,#020617 0%,#111827 100%);color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0;padding:20px}
+        .panel{max-width:520px;width:100%;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.2);border-radius:22px;padding:34px;text-align:center;box-shadow:0 24px 80px rgba(15,23,42,.5)}
+        .icon{font-size:3rem;margin-bottom:10px}
+        h2{margin:8px 0;font-size:1.5rem}
+        p{color:#94a3b8;line-height:1.6;margin:12px 0}
+        .btn{display:inline-block;margin-top:16px;padding:13px 22px;background:linear-gradient(135deg,#38bdf8,#0ea5e9);color:#000;text-decoration:none;font-weight:600;border:none;border-radius:12px;cursor:pointer;font-size:1rem}
+        .btn.secondary{background:rgba(255,255,255,.08);color:#e2e8f0}
+        .status-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:8px}
+        .success{background:#34d399}.error{background:#ef4444}.warn{background:#f59e0b}
+        .spinner{width:34px;height:34px;border:3px solid rgba(56,189,248,.2);border-top-color:#38bdf8;border-radius:50%;margin:18px auto;animation:spin 1s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+    </style>
+</head>
+<body>
+    <div class="panel" id="panel">
+        <div class="icon">⏳</div>
+        <h2>Payment Status</h2>
+        <p id="statusText">Verifying your payment...</p>
+        <div class="spinner" id="spinner"></div>
+        <a class="btn disabled" id="actionBtn" href="news.html" style="pointer-events:none;opacity:.6">Go to News</a>
+    </div>
+
+    <script>
+    (function(){
+        'use strict';
+        const params = new URLSearchParams(window.location.search);
+        const txRef = params.get('tx_ref') || params.get('transaction_id') || params.get('id') || '';
+
+        const icon = document.querySelector('.icon');
+        const statusText = document.getElementById('statusText');
+        const spinner = document.getElementById('spinner');
+        const actionBtn = document.getElementById('actionBtn');
+
+        function finish(ok, msg, btnText){
+            spinner.style.display = 'none';
+            actionBtn.style.pointerEvents = 'auto';
+            actionBtn.style.opacity = '1';
+            actionBtn.textContent = btnText;
+            icon.textContent = ok ? '✅' : (msg && msg.indexOf('w') >= 0 ? '⚠️' : '❌');
+            statusText.innerHTML = msg;
+            if(ok){
+                actionBtn.href = 'dashboard.html';
+                actionBtn.textContent = 'Open Dashboard';
+            }
+        }
+
+        if(!txRef){
+            finish(false, 'No transaction reference found. If you already paid, log in below with your phone number.', 'Go to Login');
+            return;
+        }
+
+        fetch('/api/payment-verify?tx_ref=' + encodeURIComponent(txRef))
+            .then(r => r.json())
+            .then(data => {
+                if(data.ok && data.verified){
+                    // Auto-save payer state locally so they are logged in immediately
+                    try{
+                        if(data.phone) localStorage.setItem('pressclub_phone', data.phone);
+                        localStorage.setItem('pressclub_isPayer', '1');
+                        localStorage.setItem('pressclub_pending_token', '');
+                        localStorage.setItem('pressclub_pending_phone', '');
+                    }catch(e){}
+                    finish(true, '<span class="status-dot success"></span><strong>Payment verified!</strong><br>Welcome to PressClub Premium, ' + (data.phone || 'Payer') + '!', 'Open Dashboard');
+                } else {
+                    // Not verified yet — maybe webhook is still processing. Keep polling briefly.
+                    let attempts = 0;
+                    const poll = setInterval(() => {
+                        attempts++;
+                        fetch('/api/payment-verify?tx_ref=' + encodeURIComponent(txRef))
+                            .then(r => r.json())
+                            .then(d => {
+                                if(d.ok && d.verified){
+                                    clearInterval(poll);
+                                    try{
+                                        if(d.phone) localStorage.setItem('pressclub_phone', d.phone);
+                                        localStorage.setItem('pressclub_isPayer', '1');
+                                    }catch(e){}
+                                    finish(true, '<span class="status-dot success"></span><strong>Payment verified!</strong><br>Welcome to PressClub Premium, ' + (d.phone || 'Payer') + '!', 'Open Dashboard');
+                                } else if(attempts > 10){
+                                    clearInterval(poll);
+                                    finish(false, '<span class="status-dot warn"></span>We could not confirm your payment yet.<br>If you completed the payment, try logging in with your phone number — it should be active within a minute.', 'Go to Login');
+                                }
+                            }).catch(() => {
+                                if(attempts > 10){ clearInterval(poll); finish(false, 'Network error while checking payment status. Please try logging in.', 'Go to Login'); }
+                            });
+                    }, 3000);
+                }
+            })
+            .catch(() => finish(false, 'Could not reach the payment verification service. Please try logging in with your phone number.', 'Go to Login'));
+    })();
+    </script>
+</body>
+</html>

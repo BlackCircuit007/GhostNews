@@ -1,13 +1,12 @@
-// ======================================
+﻿// ======================================
 // PRESSCLUB NEWS
 // ======================================
-// To enable live news feed: 
-// 1. Sign up at https://newsdata.io
-// 2. Copy your API key from dashboard
-// 3. Replace the key below (it currently has expired/invalid credentials)
-// 4. The app will show mock data if the API is unavailable
-
-const apikey = "pub_91280638adbd44d29938ea34a78b9e64"; // TODO: Replace with valid API key from newsdata.io
+// The news feed is served through the server-side proxy at /api/news.
+// To enable live news:
+//   1. Sign up at https://newsdata.io
+//   2. Copy your API key from the dashboard
+//   3. Set it as the NEWS_API_KEY environment variable on your host
+// When no key is set (or the API is down), the site shows sample articles.
 const categories = {
     local:{
     label:"Enugu News",
@@ -94,6 +93,7 @@ const LOGIN_MODAL_ID = "loginModal";
 const LOGIN_BTN_ID = "loginBtn";
 const CLOSE_LOGIN_MODAL_ID = "closeLoginModal";
 const SUBMIT_LOGIN_BTN_ID = "submitLoginBtn";
+const PAY_NOW_BTN_ID = "payNowBtn";
 
 function isPayer(){
     return localStorage.getItem("pressclub_isPayer")==="1";
@@ -221,6 +221,42 @@ document.addEventListener("click", (e) => {
     }
     if(e.target && e.target.id === CLOSE_PAYMENT_MODAL_ID){
         closePaymentModal();
+    }
+    if(e.target && e.target.id === PAY_NOW_BTN_ID){
+        // Pay online instantly via Flutterwave (card, bank, USSD)
+        const phone = document.getElementById('payerPhoneInput')?.value?.trim() || getLoggedInPhone();
+        if(!phone){
+            alert('Please enter the phone number for your account first.');
+            document.getElementById('payerPhoneInput')?.focus();
+            return;
+        }
+        const btn = e.target;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Creating secure payment link...';
+
+        fetch('/api/initiate-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, email: phone.includes('@') ? phone : undefined })
+        }).then(r=>r.json())
+        .then(result=>{
+            if(result.ok && result.paymentLink){
+                localStorage.setItem('pressclub_pending_phone', phone);
+                setVerificationStatus('Redirecting to secure payment...');
+                window.location.href = result.paymentLink;
+            } else {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                alert(result.message || 'Could not create a payment link. Please try the manual transfer option below.');
+            }
+        })
+        .catch(err=>{
+            btn.disabled = false;
+            btn.textContent = originalText;
+            console.error('Initiate payment error:', err);
+            alert('Payment initiation failed. Please try the manual transfer option below.');
+        });
     }
     if(e.target && e.target.id === CONFIRM_PAID_BTN_ID){
         // Gather fields and call verification endpoint
@@ -408,65 +444,32 @@ function updateHeader(){
 }
 
 async function fetchNews(query,date){
+    // News is fetched through the server proxy so the API key stays secret
+    // and gracefully falls back to sample articles when the API is unavailable.
+    const api = new URL("/api/news", window.location.origin);
 
-    const api = new URL(
-        "https://newsdata.io/api/1/latest"
-    );
-
-
-    api.searchParams.set(
-        "apikey",
-        apikey
-    );
-
-
-    api.searchParams.set(
-        "q",
-        query
-    );
-
-
-    api.searchParams.set(
-        "country",
-        "ng"
-    );
-
-
-    api.searchParams.set(
-        "language",
-        "en"
-    );
-
-
-api.searchParams.set(
-    "size",
-    "10"
-);
-
+    api.searchParams.set("q", query || "");
+    api.searchParams.set("size", "10");
+    if(date) api.searchParams.set("date", date);
 
     console.log("REQUEST:", api.toString());
 
-
     const response = await fetch(api);
-
-
     const json = await response.json();
-
 
     console.log("RESPONSE:", json);
 
-
-    if(json.status !== "success"){
-
-        const errorMsg = json.results?.message || json.message || "News loading failed";
-        throw new Error(errorMsg);
-
+    if(json.ok && json.results && json.results.length){
+        return json.results;
     }
 
+    if(json.message){
+        console.warn(json.message);
+    }
 
     return json.results || [];
-
 }
+
 function normalize(item){
 
     const providerContent = item.content || '';
@@ -616,7 +619,7 @@ await fetchNews(
         
         if(articleList.length > 0){
             renderArticles();
-            showStatus("⚠️ Live feed currently unavailable. Showing sample news. Please add a valid newsdata.io API key to enable live updates.");
+            showStatus("鈿狅笍 Live feed currently unavailable. Showing sample news. Please add a valid newsdata.io API key to enable live updates.");
         } else {
             articles.innerHTML = "<h2>Unable to load news feed</h2>";
             showStatus(error.message);
@@ -679,13 +682,13 @@ function renderArticles(){
                 <button
                     class="btn primary read-btn"
                     data-id="${article.id}">
-                    📖 Read Full Article
+                    馃摉 Read Full Article
                 </button>
                 ` : `
                 <button
                     class="btn primary read-btn"
                     data-id="${article.id}">
-                    👁️ Preview (Payer Only)
+                    馃憗锔?Preview (Payer Only)
                 </button>
                 `}
 
@@ -704,9 +707,9 @@ function renderArticles(){
                 </button>
 
                 ${isPayer() ? `
-                <button class="btn ${isPinned(article.id) ? 'primary' : 'secondary'} pin-btn" data-id="${article.id}">${isPinned(article.id) ? '✓ Saved' : '📌 Save to dashboard'}</button>
+                <button class="btn ${isPinned(article.id) ? 'primary' : 'secondary'} pin-btn" data-id="${article.id}">${isPinned(article.id) ? '鉁?Saved' : '馃搶 Save to dashboard'}</button>
                 ` : `
-                <button class="btn secondary pin-btn" data-id="${article.id}">📌 Save to dashboard</button>
+                <button class="btn secondary pin-btn" data-id="${article.id}">馃搶 Save to dashboard</button>
                 `}
 
             </div>
@@ -765,9 +768,9 @@ function showSubscriptionNotice(){
         const expires = new Date(sub.expiresAt);
         const daysLeft = Math.max(0, Math.ceil((expires.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
         if(sub.expired || daysLeft === 0){
-            showStatus('⚠️ Your premium subscription has expired. Please make a new payment to renew your access.');
+            showStatus('鈿狅笍 Your premium subscription has expired. Please make a new payment to renew your access.');
         } else if(daysLeft <= 3){
-            showStatus(`⏳ Your premium subscription expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${expires.toLocaleDateString()}). Renew soon to keep your access.`);
+            showStatus(`鈴?Your premium subscription expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${expires.toLocaleDateString()}). Renew soon to keep your access.`);
         }
     }catch(err){ /* silent */ }
 }
@@ -802,7 +805,7 @@ function showStreakReminder(){
             if(Date.now() - lastReminder < 6 * 60 * 60 * 1000) return;
             stats.lastReminder = Date.now();
             localStorage.setItem(getStatsKey(), JSON.stringify(stats));
-            showStatus(`🔥 You're on a ${streak}-day reading streak! Read an article today to keep it going.`);
+            showStatus(`馃敟 You're on a ${streak}-day reading streak! Read an article today to keep it going.`);
         }
     }catch(err){ /* silent */ }
 }
@@ -819,7 +822,7 @@ function markArticleDone(article){
             reading.unshift({ id: article.id, title: article.title, summary: article.summary || '', content: article.content || '', category, progress: 100, completed: true, updated: Date.now() });
             localStorage.setItem(getReadingKey(), JSON.stringify(reading.slice(0, 20)));
         }
-        showStatus('✅ Marked as read.');
+        showStatus('鉁?Marked as read.');
     }catch(err){ /* silent */ }
 }
 
@@ -924,7 +927,7 @@ async function showArticle(id){
             <br>
 
             <div class="detail-actions">
-            <button class="btn primary done-btn" data-id="${article.id}" type="button">✅ Mark as read</button>
+            <button class="btn primary done-btn" data-id="${article.id}" type="button">鉁?Mark as read</button>
 
             <a
             href="${article.url}"
@@ -1275,3 +1278,20 @@ if(navToggle && navLinks){
     navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
   });
 }
+
+// Open the payment modal when arriving via #become-payer (e.g. from the homepage)
+document.addEventListener('DOMContentLoaded', () => {
+  if(window.location.hash === '#become-payer' && !isPayer()){
+    setTimeout(openPaymentModal, 600);
+  }
+});
+
+// Close modals when the Escape key is pressed
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    closePaymentModal();
+    closeLoginModal();
+  }
+});
+
+

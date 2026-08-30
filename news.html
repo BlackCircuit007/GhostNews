@@ -28,6 +28,7 @@
             <a href="news.html?category=academic">World Academic News</a>
             <a href="news.html?category=sports">Sports News</a>
             <a id="payerDashboardLink" href="dashboard.html" style="display:none">Payer Dashboard</a>
+            <a href="stats.html" style="opacity:.7;font-size:.82rem">📊 Stats</a>
             <button id="loginBtn" class="btn secondary" type="button" style="display:inline-block">Login</button>
             <button id="becomePayerBtn" class="btn secondary" type="button">Become Payer</button>
         </div>
@@ -83,25 +84,28 @@
     <div id="paymentModal" class="payment-modal" aria-hidden="true">
         <div class="payment-modal__panel">
             <h3>Become a Payer</h3>
-            <p>Send payment to the OPAY account below to unlock premium features and access the Payer Dashboard.</p>
+            <p>Unlock premium features and access the Payer Dashboard for just <strong>NGN 5,000</strong>.</p>
+            <button id="payNowBtn" class="btn primary" type="button" style="width:100%;padding:14px;margin-top:6px;font-size:1.05rem">
+                🔒 Pay Online Now (Card, Bank, USSD)
+            </button>
+            <div class="payment-divider"><span>or pay by transfer</span></div>
+            <p>Send <strong>NGN 5,000</strong> to the OPAY account below, then enter your transaction details.</p>
             <p><strong>OPAY Number:</strong> 7039245529</p>
-            <p>Enter the details of your transaction below so we can verify it.</p>
 
             <label for="payerPhoneInput">Your Phone (used for verification)</label>
             <input id="payerPhoneInput" type="text" placeholder="e.g. 08012345678" />
 
-            <label for="paymentAmountInput">Amount Paid (NGN) — Fixed price</label>
+            <label for="paymentAmountInput">Amount Paid (NGN)</label>
             <input id="paymentAmountInput" type="number" value="5000" readonly />
 
             <label for="paymentRefInput">Transaction Reference</label>
             <input id="paymentRefInput" type="text" placeholder="Provider transaction reference" />
 
             <div class="payment-modal__actions">
-                <button id="confirmPaidBtn" class="btn primary" type="button">Verify Payment</button>
+                <button id="confirmPaidBtn" class="btn primary" type="button">Verify Manual Transfer</button>
                 <button id="closePaymentModal" class="btn secondary" type="button">Close</button>
             </div>
             <p id="paymentStatus" class="payment-status" aria-live="polite"></p>
-            <p style="margin-top:10px;font-size:0.9rem;color:var(--muted)">Note: For a real deployment, you must verify payments server-side with OPAY or your payment provider.</p>
         </div>
     </div>
 

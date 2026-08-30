@@ -24,3 +24,10 @@ npm-debug.log*
 
 # Misc
 .DS_Store
+
+# Runtime data & logs
+ad_stats.json
+server_output.txt
+server_error.txt
+server_stderr.txt
+server_stdout.txt

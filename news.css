@@ -1397,6 +1397,24 @@ body.compact-mode #articles{
    DISPLAY ADS (real banners)
 ========================= */
 
+.payment-divider{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin:16px 0 6px;
+    color:var(--muted);
+    font-size:.8rem;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+}
+.payment-divider::before,
+.payment-divider::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--line);
+}
+
 .ad-placeholder{
     display:flex;
     flex-direction:column;

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PressClub Owner Stats</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="stylesheet" href="index.css">
+    <style>
+        body{font-family:Arial,sans-serif;background:linear-gradient(180deg,#020617 0%,#111827 100%);color:#e2e8f0;min-height:100vh;margin:0;padding:24px}
+        .wrap{max-width:960px;margin:0 auto}
+        h1{font-size:1.8rem;margin:0 0 4px}
+        .sub{color:#94a3b8;margin-bottom:24px}
+        .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:28px}
+        .card{background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.2);border-radius:18px;padding:20px}
+        .card h3{margin:0 0 6px;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8}
+        .card .value{font-size:1.7rem;font-weight:700;color:#38bdf8}
+        .card .note{font-size:.8rem;color:#94a3b8;margin-top:4px}
+        table{width:100%;border-collapse:collapse;background:rgba(15,23,42,.7);border:1px solid rgba(148,163,184,.18);border-radius:14px;overflow:hidden}
+        th,td{padding:10px 14px;text-align:left;font-size:.9rem;border-bottom:1px solid rgba(148,163,184,.1)}
+        th{background:rgba(56,189,248,.08);color:#7dd3fc;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em}
+        tr:last-child td{border-bottom:none}
+        .refresh{display:inline-block;margin-top:18px;padding:10px 18px;background:linear-gradient(135deg,#38bdf8,#0ea5e9);color:#000;text-decoration:none;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem}
+        .refresh.ghost{background:rgba(255,255,255,.07);color:#cbd5e1;margin-left:10px}
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>📊 PressClub Owner Dashboard</h1>
+        <p class="sub">Monetization & payer overview. Refresh to update.</p>
+
+        <div class="grid" id="cards">
+            <div class="card"><h3>💰 Total Collected</h3><div class="value" id="collected">...</div><div class="note">from user payments</div></div>
+            <div class="card"><h3>👥 Payers</h3><div class="value" id="payers">...</div><div class="note" id="payerPhones"></div></div>
+            <div class="card"><h3>📰 Ad Impressions</h3><div class="value" id="impressions">...</div><div class="note">views served</div></div>
+            <div class="card"><h3>💵 Ad Revenue est.</h3><div class="value" id="adRevenue">...</div><div class="note">USD at $0.005 / impression*</div></div>
+            <div class="card"><h3>⏳ Pending Verifications</h3><div class="value" id="pending">...</div><div class="note">manual transfers to check</div></div>
+        </div>
+
+        <h2 style="font-size:1.15rem;margin:0 0 12px">Transactions</h2>
+        <table id="txTable">
+            <thead><tr><th>Phone</th><th>Amount</th><th>Ref</th><th>Provider</th><th>Verified</th></tr></thead>
+            <tbody><tr><td colspan="5" style="color:#64748b">Loading...</td></tr></tbody>
+        </table>
+
+        <h2 style="font-size:1.15rem;margin:22px 0 12px">Ad Breakdown</h2>
+        <table id="adTable">
+            <thead><tr><th>Ad</th><th>Impressions</th><th>Last Seen</th></tr></thead>
+            <tbody><tr><td colspan="3" style="color:#64748b">Loading...</td></tr></tbody>
+        </table>
+
+        <div style="margin-top:22px">
+            <button class="refresh" id="refreshBtn">↻ Refresh</button>
+            <button class="refresh ghost" onclick="location.href='dashboard.html'">Payer Dashboard</button>
+            <button class="refresh ghost" onclick="location.href='news.html'">Back to News</button>
+        </div>
+    </div>
+
+    <script>
+    (function(){
+        'use strict';
+        async function load(){
+            try{
+                const ownerResp = await fetch('/api/owner-stats');
+                const owner = await ownerResp.json();
+                const statsResp = await fetch('/api/stats');
+                const stats = await statsResp.json();
+
+                document.getElementById('collected').textContent = owner.totalCollectedNgnFormatted || 'NGN 0';
+                document.getElementById('payers').textContent = owner.payerCount || 0;
+                document.getElementById('payerPhones').textContent = (owner.payers || []).join(', ') || 'none yet';
+                document.getElementById('impressions').textContent = stats.totalImpressions || 0;
+                document.getElementById('adRevenue').textContent = '$' + (stats.estimatedRevenue || '0.00');
+                document.getElementById('pending').textContent = owner.pendingCount || 0;
+
+                // Ledger (owner pass optional)
+                const txBody = document.querySelector('#txTable tbody');
+                let passAttempt = localStorage.getItem('pressclub_owner_pass') || '';
+                try{
+                    let ledgerResp = await fetch('/api/ledger' + (passAttempt ? '?pass=' + encodeURIComponent(passAttempt) : ''));
+                    if(ledgerResp.status === 401){
+                        passAttempt = window.prompt('Enter owner pass to view transactions (set OWNER_PASS env):', '') || '';
+                        localStorage.setItem('pressclub_owner_pass', passAttempt);
+                        ledgerResp = await fetch('/api/ledger?pass=' + encodeURIComponent(passAttempt));
+                    }
+                    const ledgerData = await ledgerResp.json();
+                    if(ledgerData.ok && ledgerData.transactions && ledgerData.transactions.length){
+                        txBody.innerHTML = ledgerData.transactions.slice(0, 20).map(function(t){
+                            return '<tr><td>' + (t.phone || '') + '</td><td>NGN ' + (t.amount || '') + '</td><td>' + (t.ref || '') + '</td><td>' + (t.provider || 'manual') + '</td><td>' + (t.verified ? '✅' : '⏳') + '</td></tr>';
+                        }).join('');
+                    } else {
+                        txBody.innerHTML = '<tr><td colspan="5" style="color:#64748b">No transactions yet.</td></tr>';
+                    }
+                }catch(e){
+                    txBody.innerHTML = '<tr><td colspan="5" style="color:#64748b">Could not load ledger.</td></tr>';
+                }
+
+                const adBody = document.querySelector('#adTable tbody');
+                const perAd = stats.perAd || {};
+                const adNames = Object.keys(perAd);
+                if(!adNames.length){
+                    adBody.innerHTML = '<tr><td colspan="3" style="color:#64748b">No ad impressions recorded yet.</td></tr>';
+                } else {
+                    adBody.innerHTML = adNames.map(function(id){
+                        return '<tr><td>' + id + '</td><td>' + (perAd[id].impressions || 0) + '</td><td>' + (perAd[id].lastSeen ? new Date(perAd[id].lastSeen).toLocaleString() : '—') + '</td></tr>';
+                    }).join('');
+                }
+            }catch(err){
+                console.error('Stats load error:', err);
+            }
+        }
+        document.getElementById('refreshBtn').onclick = load;
+        load();
+    })();
+    </script>
+</body>
+</html>
