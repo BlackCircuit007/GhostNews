@@ -8,7 +8,8 @@ A news website that monetizes through **advertising impressions** and **paid mem
 ```bash
 npm install
 copy .env.example .env    # then fill in the values
-node server.js
+npm run dev               # dev mode (auto-restart on file changes)
+# or: npm start
 ```
 
 Then open http://localhost:3000
@@ -51,8 +52,26 @@ BREVO_API_KEY=xkeysib-...              # optional HTTPS fallback
 
 ## 3. Ad monetization (earn from views)
 
-- **Local sponsored banners** work out of the box (the `ads/*.svg` library).
-- To use a **real pay-per-view ad network**, set:
+### Monetag Multi-tag (active — real earnings)
+
+Your Monetag account is wired in and the tag now runs on **every page**
+(home, news, dashboard, payment page) instead of only the home page:
+
+- `MONETAG_ZONE_ID` + `MONETAG_TAG_URL` hold your zone (`274683`,
+  `https://quge5.com/88/tag.min.js`); `monetag.js` injects the tag
+  automatically — change the zone without touching HTML
+- Push notification service worker is served at **`/sw.js`**
+- Every monetized page view is counted at `/api/ads/impression`
+  (ad id `monetag-multi-tag`), so **`/stats.html`** shows your total
+  paid views; actual $ earnings are in your Monetag dashboard
+
+> Tip: don't paste the multi-tag `<script>` into HTML manually anymore —
+> it would double-load against `monetag.js`.
+
+### Local sponsored banners (fallback filler)
+
+- The `ads/*.svg` library shows when Monetag hasn't taken over a slot.
+- To plug a **different pay-per-view API** later, set:
   ```
   ENABLE_ADS_API=true
   ADS_API_KEY=your-ad-provider-key

@@ -69,6 +69,12 @@ const ADS_API_KEY = process.env.ADS_API_KEY || '';
 const ENABLE_ADS_API = process.env.ENABLE_ADS_API === 'true';
 // External ad provider endpoint (set via env, empty = use local library)
 const ADS_API_URL = process.env.ADS_API_URL || '';
+
+// MONETAG (real ad network - popunder / push / vignette / interstitial).
+// The multi-tag script is injected on EVERY page by monetag.js, with the
+// zone id supplied by the server so it can be changed via env vars alone.
+const MONETAG_ZONE_ID = process.env.MONETAG_ZONE_ID || '';
+const MONETAG_TAG_URL = process.env.MONETAG_TAG_URL || 'https://quge5.com/88/tag.min.js';
 // Fallback local ad library used when the external API is disabled or fails
 const AD_LIBRARY = [
   {
@@ -563,7 +569,9 @@ app.get('/api/config', (req, res) => {
   res.json({
     adsApiEnabled: ENABLE_ADS_API && !!ADS_API_KEY,
     adsApiFallbackToLocal: true,
-    adsApiEndpoint: '/api/ads'
+    adsApiEndpoint: '/api/ads',
+    monetagZone: MONETAG_ZONE_ID,
+    monetagTagUrl: MONETAG_TAG_URL
   });
 });
 
@@ -863,6 +871,25 @@ app.post('/api/flutterwave-webhook', async (req, res) => {
   }
 
   return res.sendStatus(200);
+});
+
+// ------------------------------------------------------------------
+// SECURITY: never expose secrets or internal files to the public.
+// express.static() serves the whole project directory, so sensitive
+// files (.env with all keys, data.json with payer phone numbers,
+// server.js, etc.) must be blocked BEFORE it runs.
+// ------------------------------------------------------------------
+app.use((req, res, next) => {
+  const p = String(req.path).toLowerCase();
+  const blocked = [
+    '/server.js', '/package.json', '/package-lock.json',
+    '/data.json', '/ad_stats.json', '/render.yaml',
+    '/.env', '/.gitignore', '/sw (1).js'
+  ];
+  if(blocked.includes(p) || p.includes('.env') || p.startsWith('/.git')){
+    return res.status(404).send('Not found');
+  }
+  next();
 });
 
 // Serve static files with caching headers

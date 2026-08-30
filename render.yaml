@@ -58,6 +58,10 @@ services:
         sync: false
       - key: ADS_API_URL
         value: "https://ads.provider.com/v1/banners"
+      - key: MONETAG_ZONE_ID
+        sync: false
+      - key: MONETAG_TAG_URL
+        value: "https://quge5.com/88/tag.min.js"
       - key: FLUTTERWAVE_SECRET_KEY
         sync: false
       - key: FLUTTERWAVE_PUBLIC_KEY
