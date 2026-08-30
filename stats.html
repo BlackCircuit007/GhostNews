@@ -1,16 +1,27 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PressClub Owner Stats</title>
+    <title>PressClub</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-    <link rel="stylesheet" href="index.css">
+    <meta name="robots" content="noindex, nofollow">
     <style>
         body{font-family:Arial,sans-serif;background:linear-gradient(180deg,#020617 0%,#111827 100%);color:#e2e8f0;min-height:100vh;margin:0;padding:24px}
         .wrap{max-width:960px;margin:0 auto}
         h1{font-size:1.8rem;margin:0 0 4px}
         .sub{color:#94a3b8;margin-bottom:24px}
+        /* ---- Lock screen ---- */
+        #lockScreen{max-width:380px;margin:12vh auto 0;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.25);border-radius:18px;padding:28px;text-align:center}
+        #lockScreen .lock-icon{font-size:2.2rem}
+        #lockScreen h2{margin:8px 0 4px;font-size:1.15rem}
+        #lockScreen p{color:#94a3b8;font-size:.85rem;margin:0 0 16px}
+        #lockScreen input{width:100%;box-sizing:border-box;padding:12px 14px;background:#020617;border:1px solid rgba(148,163,184,.35);border-radius:10px;color:#e2e8f0;font-size:1rem;text-align:center}
+        #lockScreen button{width:100%;margin-top:12px;padding:12px;background:linear-gradient(135deg,#38bdf8,#0ea5e9);color:#000;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:.95rem}
+        #lockError{color:#f87171;font-size:.85rem;margin-top:10px;min-height:1.2em}
+        #lockScreen.shake{animation:shake .35s}
+        @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+        #dashboard{display:none}
         .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:28px}
         .card{background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.2);border-radius:18px;padding:20px}
         .card h3{margin:0 0 6px;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8}
@@ -25,9 +36,22 @@
     </style>
 </head>
 <body>
-    <div class="wrap">
+    <!-- Owner code lock screen: this page is linked from nowhere on purpose -->
+    <div id="lockScreen">
+        <div class="lock-icon">🔒</div>
+        <h2>Restricted Area</h2>
+        <p>Enter your secret owner code to view stats.</p>
+        <form id="lockForm">
+            <input type="password" id="ownerCodeInput" placeholder="Owner code" autocomplete="off" autofocus />
+            <button type="submit">Unlock</button>
+            <div id="lockError"></div>
+        </form>
+    </div>
+
+    <!-- Owner dashboard (only visible after the code is accepted) -->
+    <div class="wrap" id="dashboard">
         <h1>📊 PressClub Owner Dashboard</h1>
-        <p class="sub">Monetization & payer overview. Refresh to update.</p>
+        <p class="sub">Monetization &amp; payer overview. Refresh to update.</p>
 
         <div class="grid" id="cards">
             <div class="card"><h3>💰 Total Collected</h3><div class="value" id="collected">...</div><div class="note">from user payments</div></div>
@@ -51,66 +75,128 @@
 
         <div style="margin-top:22px">
             <button class="refresh" id="refreshBtn">↻ Refresh</button>
-            <button class="refresh ghost" onclick="location.href='dashboard.html'">Payer Dashboard</button>
             <button class="refresh ghost" onclick="location.href='news.html'">Back to News</button>
+            <button class="refresh ghost" id="lockBtn">🔒 Lock again</button>
         </div>
     </div>
 
     <script>
     (function(){
         'use strict';
-        async function load(){
+        var CODE_KEY = 'pressclub_owner_code';
+
+        function getCode(){
+            try{ return sessionStorage.getItem(CODE_KEY) || ''; }catch(e){ return ''; }
+        }
+        function saveCode(code){
+            try{ sessionStorage.setItem(CODE_KEY, code); }catch(e){}
+        }
+        function clearCode(){
+            try{ sessionStorage.removeItem(CODE_KEY); }catch(e){}
+        }
+        function ownerHeaders(){
+            return { 'X-Owner-Pass': getCode(), 'Content-Type': 'application/json' };
+        }
+
+        // Ask the server to validate a code
+        function auth(code){
+            return fetch('/api/owner-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code })
+            }).then(function(r){
+                if(!r.ok) throw new Error('wrong');
+                return r.json();
+            });
+        }
+
+        function showDashboard(){
+            document.getElementById('lockScreen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            load();
+        }
+
+        function lock(){
+            clearCode();
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('lockScreen').style.display = 'block';
+            document.getElementById('ownerCodeInput').value = '';
+            document.getElementById('ownerCodeInput').focus();
+        }
+
+        function load(){
             try{
-                const ownerResp = await fetch('/api/owner-stats');
-                const owner = await ownerResp.json();
-                const statsResp = await fetch('/api/stats');
-                const stats = await statsResp.json();
+                Promise.all([
+                    fetch('/api/owner-stats', { headers: ownerHeaders() }).then(function(r){ if(r.status === 401){ lock(); throw new Error('locked'); } return r.json(); }),
+                    fetch('/api/stats', { headers: ownerHeaders() }).then(function(r){ if(r.status === 401){ lock(); throw new Error('locked'); } return r.json(); })
+                ]).then(function(results){
+                    var owner = results[0], stats = results[1];
 
-                document.getElementById('collected').textContent = owner.totalCollectedNgnFormatted || 'NGN 0';
-                document.getElementById('payers').textContent = owner.payerCount || 0;
-                document.getElementById('payerPhones').textContent = (owner.payers || []).join(', ') || 'none yet';
-                document.getElementById('impressions').textContent = stats.totalImpressions || 0;
-                document.getElementById('adRevenue').textContent = '$' + (stats.estimatedRevenue || '0.00');
-                document.getElementById('pending').textContent = owner.pendingCount || 0;
+                    document.getElementById('collected').textContent = owner.totalCollectedNgnFormatted || 'NGN 0';
+                    document.getElementById('payers').textContent = owner.payerCount || 0;
+                    document.getElementById('payerPhones').textContent = (owner.payers || []).join(', ') || 'none yet';
+                    document.getElementById('impressions').textContent = stats.totalImpressions || 0;
+                    document.getElementById('adRevenue').textContent = '$' + (stats.estimatedRevenue || '0.00');
+                    document.getElementById('pending').textContent = owner.pendingCount || 0;
 
-                // Ledger (owner pass optional)
-                const txBody = document.querySelector('#txTable tbody');
-                let passAttempt = localStorage.getItem('pressclub_owner_pass') || '';
-                try{
-                    let ledgerResp = await fetch('/api/ledger' + (passAttempt ? '?pass=' + encodeURIComponent(passAttempt) : ''));
-                    if(ledgerResp.status === 401){
-                        passAttempt = window.prompt('Enter owner pass to view transactions (set OWNER_PASS env):', '') || '';
-                        localStorage.setItem('pressclub_owner_pass', passAttempt);
-                        ledgerResp = await fetch('/api/ledger?pass=' + encodeURIComponent(passAttempt));
-                    }
-                    const ledgerData = await ledgerResp.json();
-                    if(ledgerData.ok && ledgerData.transactions && ledgerData.transactions.length){
-                        txBody.innerHTML = ledgerData.transactions.slice(0, 20).map(function(t){
-                            return '<tr><td>' + (t.phone || '') + '</td><td>NGN ' + (t.amount || '') + '</td><td>' + (t.ref || '') + '</td><td>' + (t.provider || 'manual') + '</td><td>' + (t.verified ? '✅' : '⏳') + '</td></tr>';
-                        }).join('');
+                    var txBody = document.querySelector('#txTable tbody');
+                    fetch('/api/ledger', { headers: ownerHeaders() }).then(function(r){ return r.json(); }).then(function(ledgerData){
+                        if(ledgerData.ok && ledgerData.transactions && ledgerData.transactions.length){
+                            txBody.innerHTML = ledgerData.transactions.slice(0, 20).map(function(t){
+                                return '<tr><td>' + (t.phone || '') + '</td><td>NGN ' + (t.amount || '') + '</td><td>' + (t.ref || '') + '</td><td>' + (t.provider || 'manual') + '</td><td>' + (t.verified ? '\u2705' : '\u23f3') + '</td></tr>';
+                            }).join('');
+                        } else {
+                            txBody.innerHTML = '<tr><td colspan="5" style="color:#64748b">No transactions yet.</td></tr>';
+                        }
+                    }).catch(function(){
+                        txBody.innerHTML = '<tr><td colspan="5" style="color:#64748b">Could not load ledger.</td></tr>';
+                    });
+
+                    var adBody = document.querySelector('#adTable tbody');
+                    var perAd = stats.perAd || {};
+                    var adNames = Object.keys(perAd);
+                    if(!adNames.length){
+                        adBody.innerHTML = '<tr><td colspan="3" style="color:#64748b">No ad impressions recorded yet.</td></tr>';
                     } else {
-                        txBody.innerHTML = '<tr><td colspan="5" style="color:#64748b">No transactions yet.</td></tr>';
+                        adBody.innerHTML = adNames.map(function(id){
+                            return '<tr><td>' + id + '</td><td>' + (perAd[id].impressions || 0) + '</td><td>' + (perAd[id].lastSeen ? new Date(perAd[id].lastSeen).toLocaleString() : '\u2014') + '</td></tr>';
+                        }).join('');
                     }
-                }catch(e){
-                    txBody.innerHTML = '<tr><td colspan="5" style="color:#64748b">Could not load ledger.</td></tr>';
-                }
-
-                const adBody = document.querySelector('#adTable tbody');
-                const perAd = stats.perAd || {};
-                const adNames = Object.keys(perAd);
-                if(!adNames.length){
-                    adBody.innerHTML = '<tr><td colspan="3" style="color:#64748b">No ad impressions recorded yet.</td></tr>';
-                } else {
-                    adBody.innerHTML = adNames.map(function(id){
-                        return '<tr><td>' + id + '</td><td>' + (perAd[id].impressions || 0) + '</td><td>' + (perAd[id].lastSeen ? new Date(perAd[id].lastSeen).toLocaleString() : '—') + '</td></tr>';
-                    }).join('');
-                }
+                }).catch(function(err){
+                    if(err && err.message !== 'locked') console.error('Stats load error:', err);
+                });
             }catch(err){
                 console.error('Stats load error:', err);
             }
         }
+
+        // Lock form submit
+        document.getElementById('lockForm').addEventListener('submit', function(e){
+            e.preventDefault();
+            var code = document.getElementById('ownerCodeInput').value.trim();
+            if(!code) return;
+            auth(code).then(function(){
+                saveCode(code);
+                showDashboard();
+            }).catch(function(){
+                var box = document.getElementById('lockScreen');
+                box.classList.remove('shake');
+                void box.offsetWidth; // restart animation
+                box.classList.add('shake');
+                document.getElementById('lockError').textContent = 'Wrong code. Try again.';
+            });
+        });
+
         document.getElementById('refreshBtn').onclick = load;
-        load();
+        document.getElementById('lockBtn').onclick = lock;
+
+        // Auto-unlock if a valid code is already in this tab's session
+        (function(){
+            var code = getCode();
+            if(code){
+                auth(code).then(showDashboard).catch(function(){ clearCode(); });
+            }
+        })();
     })();
     </script>
 </body>

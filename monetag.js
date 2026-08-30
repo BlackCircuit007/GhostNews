@@ -30,6 +30,15 @@
     .then(function(cfg){
       if(!cfg || !cfg.monetagZone) return; // not configured - stay silent
 
+      // Respect the payer's ad-free preference (dashboard toggle).
+      // Same key/lookup as ads.js, evaluated inline so load order
+      // between monetag.js and ads.js never matters.
+      try{
+        var phone = localStorage.getItem('pressclub_phone') || '';
+        var adfreeKey = phone ? ('pressclub_adfree_' + phone) : 'pressclub_adfree';
+        if(localStorage.getItem(adfreeKey) === '1') return; // payer opted out
+      }catch(e){ /* storage unavailable -> show ads (default) */ }
+
       // Inject the Monetag multi-tag script exactly as Monetag provides it
       var s = document.createElement('script');
       s.src = cfg.monetagTagUrl || 'https://quge5.com/88/tag.min.js';

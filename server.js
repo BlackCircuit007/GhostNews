@@ -28,131 +28,36 @@ const OWNER_EMAIL = process.env.OWNER_EMAIL || '';
 const MAIL_FROM = process.env.MAIL_FROM || process.env.SMTP_USER || '';
 
 // ------------------------------------------------------------------
-// Persistent stores (survive server restarts so payers in the US can
-// be verified later by the owner in Nigeria without losing data)
+// Persistent stores (survive server restarts). Backed by CockroachDB
+// when DATABASE_URL is set; JSON files are always mirrored as backup.
 // ------------------------------------------------------------------
-const DATA_FILE = path.join(__dirname, 'data.json');
+const store = require('./storage');
+const ledger = store.data.ledger;          // verified transactions
+const pending = store.data.pending;        // token -> { phone, amount, ref, date }
+const verifiedTokens = store.data.verifiedTokens; // confirmed token -> record
+const adStats = store.data.adStats;        // ad impression stats
 
-let ledger = []; // verified transactions
-let pending = {}; // token -> { phone, amount, ref, date }
-let verifiedTokens = {}; // confirmed token -> record
-
-function loadData(){
-  try{
-    if(fs.existsSync(DATA_FILE)){
-      const raw = fs.readFileSync(DATA_FILE, 'utf8');
-      const data = JSON.parse(raw);
-      ledger = Array.isArray(data.ledger) ? data.ledger : [];
-      pending = data.pending || {};
-      verifiedTokens = data.verifiedTokens || {};
-      console.log('Loaded persisted data:', { ledger: ledger.length, pending: Object.keys(pending).length, verified: Object.keys(verifiedTokens).length });
-    }
-  }catch(err){
-    console.error('Failed to load data file:', err.message);
+store.init().then(function(info){
+  if(info.backend === 'cockroachdb'){
+    console.log('Storage: CockroachDB connected (payments + ad stats are database-backed).');
+  }else if(info.error){
+    console.warn('Storage: using JSON files (CockroachDB unreachable: ' + info.error + ')');
+  }else{
+    console.log('Storage: using JSON files (set DATABASE_URL to enable CockroachDB).');
   }
-}
+}).catch(function(err){
+  console.warn('Storage init error (continuing with files):', err.message);
+});
 
-function saveData(){
-  try{
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ ledger, pending, verifiedTokens }, null, 2));
-  }catch(err){
-    console.error('Failed to save data file:', err.message);
-  }
-}
-
-loadData();
 
 // ------------------------------------------------------------------
-// ADVERTISEMENT SYSTEM
+// ADVERTISEMENT SYSTEM (Monetag)
 // ------------------------------------------------------------------
-const ADS_API_KEY = process.env.ADS_API_KEY || '';
-const ENABLE_ADS_API = process.env.ENABLE_ADS_API === 'true';
-// External ad provider endpoint (set via env, empty = use local library)
-const ADS_API_URL = process.env.ADS_API_URL || '';
-
-// MONETAG (real ad network - popunder / push / vignette / interstitial).
-// The multi-tag script is injected on EVERY page by monetag.js, with the
-// zone id supplied by the server so it can be changed via env vars alone.
+// Monetag is the only ad network. The multi-tag script is injected on
+// EVERY page by monetag.js, with the zone id supplied by the server so
+// it can be changed via env vars alone. No sample/banner ads.
 const MONETAG_ZONE_ID = process.env.MONETAG_ZONE_ID || '';
 const MONETAG_TAG_URL = process.env.MONETAG_TAG_URL || 'https://quge5.com/88/tag.min.js';
-// Fallback local ad library used when the external API is disabled or fails
-const AD_LIBRARY = [
-  {
-    id: 'techsummit',
-    image: 'ads/tech-summit.svg',
-    link: 'https://example.com/techsummit',
-    alt: 'TechSummit Lagos 2026 - Africa biggest tech and AI conference. Get tickets now.',
-    label: 'Sponsored'
-  },
-  {
-    id: 'brightlearn',
-    image: 'ads/brightlearn.svg',
-    link: 'https://example.com/brightlearn',
-    alt: 'BrightLearn - Learn new skills. Earn a certificate. Online courses starting at N3,000.',
-    label: 'Sponsored'
-  },
-  {
-    id: 'skylight',
-    image: 'ads/skylight-bank.svg',
-    link: 'https://example.com/skylightbank',
-    alt: 'SkyLite Bank - Smart banking for the digital age. Open an account in 5 minutes.',
-    label: 'Sponsored'
-  }
-];
-
-// Persistent ad impression stats (so revenue data survives restarts)
-const AD_STATS_FILE = path.join(__dirname, 'ad_stats.json');
-let adStats = { totalImpressions: 0, perAd: {}, lastReset: new Date().toISOString() };
-
-function loadAdStats(){
-  try{
-    if(fs.existsSync(AD_STATS_FILE)){
-      const raw = fs.readFileSync(AD_STATS_FILE, 'utf8');
-      const parsed = JSON.parse(raw);
-      adStats = {
-        totalImpressions: parsed.totalImpressions || 0,
-        perAd: parsed.perAd || {},
-        lastReset: parsed.lastReset || new Date().toISOString()
-      };
-      console.log('Loaded ad stats:', { totalImpressions: adStats.totalImpressions });
-    }
-  }catch(err){
-    console.error('Failed to load ad stats:', err.message);
-  }
-}
-
-function saveAdStats(){
-  try{
-    fs.writeFileSync(AD_STATS_FILE, JSON.stringify(adStats, null, 2));
-  }catch(err){
-    console.error('Failed to save ad stats:', err.message);
-  }
-}
-
-loadAdStats();
-
-// Fetch ads from the external ad provider API (server-side, keeps API key secret)
-async function fetchAdsFromProvider(){
-  if(!ENABLE_ADS_API || !ADS_API_KEY || !ADS_API_URL){
-    return null;
-  }
-  try{
-    const resp = await fetch(ADS_API_URL, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${ADS_API_KEY}`,
-        'Accept': 'application/json'
-      },
-      signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
-    });
-    if(!resp.ok) throw new Error('Ad provider API returned ' + resp.status);
-    const data = await resp.json();
-    return data.ads || null;
-  }catch(err){
-    console.warn('External ad API fetch failed, falling back to local ads:', err.message);
-    return null;
-  }
-}
 
 // ------------------------------------------------------------------
 // AUTOMATED PAYMENT GATEWAY (Flutterwave)
@@ -241,7 +146,7 @@ function addToLedger({ phone, amount, ref, provider, token, date, verifiedAt }){
     delete pending[token];
     delete pending[ref];
   }
-  saveData();
+  store.save();
   return record;
 }
 
@@ -474,7 +379,7 @@ app.post('/api/request-verify', async (req, res) => {
 
   const token = crypto.randomBytes(12).toString('hex');
   pending[token] = { phone, amount: String(amount), ref, date: new Date().toISOString(), token };
-  saveData();
+  store.save();
 
   try{
     const verifyUrl = `${req.protocol}://${req.get('host')}/verify/${token}`;
@@ -532,7 +437,7 @@ app.post('/api/confirm/:token', (req, res) => {
   // Keep a copy of verified tokens so the client can poll them transiently
   verifiedTokens[t] = record; // store by token so /api/check-token can resolve it
   delete pending[t];
-  saveData();
+  store.save();
   console.log('Confirmed:', id);
   return res.send('<h1>Payment marked as verified. You can close this page.</h1>');
 });
@@ -560,37 +465,52 @@ app.get('/api/check-token', (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// ADVERTISING API ENDPOINTS
+// OWNER CODE GATE
+// The owner's stats (revenue, payer phones, ledger) are hidden until
+// the secret code (OWNER_PASS) is provided. No public nav link points
+// to /stats.html — the owner types the code into the Login box or on
+// the stats page itself.
+// ------------------------------------------------------------------
+const OWNER_PASS = process.env.OWNER_CODE || process.env.OWNER_PASS || '';
+
+function ownerCodeOk(provided){
+  if(!OWNER_PASS) return true; // no code configured -> open (dev only)
+  const a = crypto.createHash('sha256').update(String(provided || '')).digest();
+  const b = crypto.createHash('sha256').update(OWNER_PASS).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+function requireOwnerCode(req, res, next){
+  const provided = req.headers['x-owner-pass'] || req.query.pass || '';
+  if(ownerCodeOk(provided)) return next();
+  return res.status(401).json({ ok: false, message: 'Owner code required' });
+}
+
+// Used by the stats page lock screen and the Login box to validate a code
+app.post('/api/owner-auth', (req, res) => {
+  const code = (req.body || {}).code || '';
+  if(ownerCodeOk(code)){
+    return res.json({ ok: true, message: 'Owner code accepted' });
+  }
+  return res.status(401).json({ ok: false, message: 'Wrong code' });
+});
+
+// ------------------------------------------------------------------
+// ADVERTISING API ENDPOINTS (Monetag only)
 // ------------------------------------------------------------------
 
 // Return public server-side configuration to the client.
-// The API key is NEVER sent to the browser — only a boolean flag.
 app.get('/api/config', (req, res) => {
   res.json({
-    adsApiEnabled: ENABLE_ADS_API && !!ADS_API_KEY,
-    adsApiFallbackToLocal: true,
-    adsApiEndpoint: '/api/ads',
     monetagZone: MONETAG_ZONE_ID,
     monetagTagUrl: MONETAG_TAG_URL
   });
 });
 
-// Serve ads to the client.
-// 1. If an external ad provider is configured & enabled, fetch from it.
-// 2. On failure or when disabled, fall back to the local AD_LIBRARY.
-app.get('/api/ads', async (req, res) => {
-  // Try external provider first (server-side: keeps API key secret)
-  let ads = null;
-  if(ENABLE_ADS_API && ADS_API_KEY && ADS_API_URL){
-    ads = await fetchAdsFromProvider();
-  }
-
-  // Fallback to local library
-  if(!ads || !ads.length){
-    ads = AD_LIBRARY;
-  }
-
-  res.json({ ads });
+// Monetag's multi-tag script injects its own formats on every page
+// (monetag.js), so no banner ads are served from here anymore.
+app.get('/api/ads', (req, res) => {
+  res.json({ ads: [], monetag: { zone: MONETAG_ZONE_ID, tagUrl: MONETAG_TAG_URL } });
 });
 
 // Track a single ad impression for pay-per-view revenue calculation
@@ -607,7 +527,7 @@ app.post('/api/ads/impression', (req, res) => {
   adStats.perAd[adId].impressions = (adStats.perAd[adId].impressions || 0) + 1;
   adStats.perAd[adId].lastSeen = timestamp || new Date().toISOString();
 
-  saveAdStats();
+  store.save();
 
   // Estimate: $0.005 per impression (placeholder — replace with real rate card)
   const ratePerImpression = 0.005;
@@ -616,8 +536,8 @@ app.post('/api/ads/impression', (req, res) => {
   res.json({ ok: true, totalImpressions: adStats.totalImpressions, estimatedRevenue });
 });
 
-// Public stats endpoint (total impressions, per-ad breakdown)
-app.get('/api/stats', (req, res) => {
+// Public stats endpoint — HIDDEN behind the owner code
+app.get('/api/stats', requireOwnerCode, (req, res) => {
   const ratePerImpression = 0.005;
   res.json({
     totalImpressions: adStats.totalImpressions || 0,
@@ -627,8 +547,8 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
-// Owner stats: payer count + total payments collected
-app.get('/api/owner-stats', (req, res) => {
+// Owner stats: payer count + total payments collected — HIDDEN behind the owner code
+app.get('/api/owner-stats', requireOwnerCode, (req, res) => {
   const payers = [...new Set(ledger.map(l => l.phone).filter(Boolean))];
   const totalCollected = ledger.reduce((sum, l) => sum + (Number(String(l.amount).replace(/[^0-9.]/g, '')) || 0), 0);
   res.json({
@@ -644,14 +564,8 @@ app.get('/api/owner-stats', (req, res) => {
   });
 });
 
-// Full ledger for the owner (requires the owner pass if set)
-// Pass the owner pass in the X-Owner-Pass header or ?pass= query param.
-app.get('/api/ledger', (req, res) => {
-  const ownerPass = process.env.OWNER_PASS || '';
-  const provided = (req.headers['x-owner-pass'] || req.query.pass || '').toString();
-  if(ownerPass && provided !== ownerPass){
-    return res.status(401).json({ ok: false, message: 'Owner pass required' });
-  }
+// Full ledger for the owner (requires the owner code)
+app.get('/api/ledger', requireOwnerCode, (req, res) => {
   const sorted = [...ledger].sort((a, b) => new Date(b.verifiedAt || b.date || 0) - new Date(a.verifiedAt || a.date || 0));
   res.json({ ok: true, transactions: sorted.slice(0, 50), pendingCount: Object.keys(pending).length });
 });
@@ -697,6 +611,12 @@ app.post('/api/login', (req, res) => {
   
   if(!phone) {
     return res.status(400).json({ ok: false, message: 'Phone number required' });
+  }
+
+  // Owner door: typing the secret owner code into the login box unlocks
+  // the hidden stats dashboard instead of performing a payer login.
+  if(OWNER_PASS && ownerCodeOk(phone)){
+    return res.json({ ok: true, owner: true, message: 'Owner code accepted' });
   }
 
   // Check if phone exists in ledger (verified payments), newest first
@@ -882,7 +802,7 @@ app.post('/api/flutterwave-webhook', async (req, res) => {
 app.use((req, res, next) => {
   const p = String(req.path).toLowerCase();
   const blocked = [
-    '/server.js', '/package.json', '/package-lock.json',
+    '/server.js', '/storage.js', '/package.json', '/package-lock.json',
     '/data.json', '/ad_stats.json', '/render.yaml',
     '/.env', '/.gitignore', '/sw (1).js'
   ];

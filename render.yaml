@@ -13,10 +13,17 @@
 # LIVE NEWS:
 #   NEWS_API_KEY  - newsdata.io API key (https://newsdata.io)
 #
-# ADS MONETIZATION (optional):
-#   ENABLE_ADS_API - 'true' to fetch ads from an external provider
-#   ADS_API_KEY    - ad provider key (never sent to browsers)
-#   ADS_API_URL    - ad provider REST endpoint
+# ADS MONETIZATION (Monetag only — zone injected on every page):
+#   MONETAG_ZONE_ID - your Monetag multi-tag zone id
+#   MONETAG_TAG_URL - the tag.min.js URL from the Monetag snippet
+#
+# OWNER STATS (hidden dashboard):
+#   OWNER_CODE      - secret code that unlocks /stats.html & owner APIs
+#
+# DATABASE (CockroachDB — optional but recommended on Render):
+#   DATABASE_URL    - postgres connection string; when set, payments &
+#                     ad stats are stored in a pressclub_state table
+#                     (JSON files remain as an automatic backup)
 #
 # AUTOMATED PAYMENTS (optional, Flutterwave):
 #   FLUTTERWAVE_SECRET_KEY  - enables instant online payments -> Payer
@@ -38,6 +45,10 @@ services:
         sync: false
       - key: OWNER_EMAIL
         sync: false
+      - key: OWNER_CODE
+        sync: false
+      - key: DATABASE_URL
+        sync: false
       - key: MAIL_FROM
         sync: false
       - key: SMTP_HOST
@@ -52,12 +63,6 @@ services:
         sync: false
       - key: BREVO_API_KEY
         sync: false
-      - key: ENABLE_ADS_API
-        value: "false"
-      - key: ADS_API_KEY
-        sync: false
-      - key: ADS_API_URL
-        value: "https://ads.provider.com/v1/banners"
       - key: MONETAG_ZONE_ID
         sync: false
       - key: MONETAG_TAG_URL

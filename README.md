@@ -52,9 +52,9 @@ BREVO_API_KEY=xkeysib-...              # optional HTTPS fallback
 
 ## 3. Ad monetization (earn from views)
 
-### Monetag Multi-tag (active — real earnings)
+### Monetag Multi-tag (the only ad network — real earnings)
 
-Your Monetag account is wired in and the tag now runs on **every page**
+Your Monetag account is wired in and the tag runs on **every page**
 (home, news, dashboard, payment page) instead of only the home page:
 
 - `MONETAG_ZONE_ID` + `MONETAG_TAG_URL` hold your zone (`274683`,
@@ -62,24 +62,26 @@ Your Monetag account is wired in and the tag now runs on **every page**
   automatically — change the zone without touching HTML
 - Push notification service worker is served at **`/sw.js`**
 - Every monetized page view is counted at `/api/ads/impression`
-  (ad id `monetag-multi-tag`), so **`/stats.html`** shows your total
+  (ad id `monetag-multi-tag`), so your **owner dashboard** shows your total
   paid views; actual $ earnings are in your Monetag dashboard
+- Payers can switch ads off for themselves in their dashboard
+  (**Ad-free browsing**) — Monetag is then not loaded for that payer at all
+- The old sample SVG banner ads were removed entirely
 
 > Tip: don't paste the multi-tag `<script>` into HTML manually anymore —
 > it would double-load against `monetag.js`.
 
-### Local sponsored banners (fallback filler)
+### Owner dashboard (hidden behind your secret code)
 
-- The `ads/*.svg` library shows when Monetag hasn't taken over a slot.
-- To plug a **different pay-per-view API** later, set:
-  ```
-  ENABLE_ADS_API=true
-  ADS_API_KEY=your-ad-provider-key
-  ADS_API_URL=https://your-ad-provider.com/v1/banners
-  ```
-- Every served ad records an **impression** at `POST /api/ads/impression`.
-- Impressions are stored in `ad_stats.json` and visible at **`/stats.html`** or `GET /api/stats`.
-- `GET /api/owner-stats` shows total money collected from payers + ad revenue estimate.
+There is **no stats link in the navigation** on purpose. To see your money:
+
+1. Click **Login** (or go straight to `/stats.html`)
+2. Enter your secret **owner code** (`OWNER_CODE` in `.env` / Render)
+3. The owner dashboard unlocks: total collected, payers, ad impressions,
+   ad revenue estimate, pending verifications and the full ledger
+
+Owner endpoints (`/api/stats`, `/api/owner-stats`, `/api/ledger`) all
+require the code (`X-Owner-Pass` header or `?pass=`).
 
 ## 4. Payments ("Become a Payer") — automated online payment
 
@@ -113,23 +115,35 @@ Environment (or let the Blueprint prompt you):
 - `OWNER_EMAIL`, `MAIL_FROM`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (email)
 - `NEWS_API_KEY` (live news)
 - `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_PUBLIC_KEY`, `FLUTTERWAVE_SECRET_HASH` (payments)
-- `ADS_API_KEY`, `ADS_API_URL`, `ENABLE_ADS_API` (real ad network — optional)
-- `OWNER_PASS` (optional password to view the full transaction ledger on `/stats.html`)
+- `MONETAG_ZONE_ID`, `MONETAG_TAG_URL` (your Monetag zone)
+- `OWNER_CODE` (secret code that unlocks the hidden owner stats)
+- `DATABASE_URL` (CockroachDB — see below)
 
-> Note on Render free: the filesystem is **not** persistent between redeploys, so
-> `data.json` (payer ledger) and `ad_stats.json` are reset when the service restarts.
-> For production durability, add a database or a volume for `data.json`.
+### CockroachDB (database-backed payments & stats)
+
+1. Create a free **CockroachDB Cloud** cluster (Serverless tier is fine)
+2. Copy the connection string and add it as `DATABASE_URL`, e.g.
+   `postgresql://user:pass@free-tier.gcp.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full`
+3. On first start the server creates a `pressclub_state` table and stores
+   the payment ledger, pending verifications, verified tokens and ad stats there
+4. If the DB is ever unreachable, the server automatically keeps working from
+   the JSON files and merges everything back when the DB returns — no data lost
+
+This fixes Render free tier's ephemeral disk: payer records survive restarts
+and redeploys.
 
 ## API endpoints
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET  | `/api/news?q=...&date=...` | News proxy (key stays on server) |
-| GET  | `/api/ads` | Returns ads (external provider or local library) |
+| GET  | `/api/config` | Public config (Monetag zone) |
+| GET  | `/api/ads` | Ad config (Monetag only — no banner ads) |
 | POST | `/api/ads/impression` | Counts one ad view |
-| GET  | `/api/stats` | Ad impression totals + estimated revenue |
-| GET  | `/api/owner-stats` | Payers, money collected, impressions, revenue |
-| GET  | `/api/ledger?pass=...` | Full transactions (owner pass optional) |
+| POST | `/api/owner-auth` | Validates the owner code |
+| GET  | `/api/stats?pass=...` | Ad impressions + revenue (**owner code required**) |
+| GET  | `/api/owner-stats?pass=...` | Payers, money collected (**owner code required**) |
+| GET  | `/api/ledger?pass=...` | Full transactions (**owner code required**) |
 | POST | `/api/initiate-payment` | Creates Flutterwave payment link |
 | POST | `/api/flutterwave-webhook` | Flutterwave auto-verification |
 | GET  | `/api/payment-verify?tx_ref=...` | Check a payment status |

@@ -179,19 +179,41 @@ document.addEventListener("click", (e) => {
         closeLoginModal();
     }
     if(e.target && e.target.id === SUBMIT_LOGIN_BTN_ID){
-        // Handle login with phone number
+        // Handle login with phone number (or the owner's secret stats code)
         const phone = document.getElementById('loginPhoneInput')?.value?.trim();
         if(!phone){
             alert('Please enter your phone number.');
             return;
         }
-        fetch('/api/login', {
+        // Owner door: if this is the secret owner code, unlock the hidden
+        // stats dashboard instead of doing a payer login.
+        fetch('/api/owner-auth', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone })
-        }).then(r=>r.json())
-        .then(data=>{
-            if(data.ok){
+            body: JSON.stringify({ code: phone })
+        }).then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+          .then(() => {
+              try { sessionStorage.setItem('pressclub_owner_code', phone); } catch(e) {}
+              document.getElementById('loginPhoneInput').value = '';
+              closeLoginModal();
+              location.href = 'stats.html';
+          })
+          .catch(() => {
+              // Not the owner code — continue with the normal payer login
+              return fetch('/api/login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ phone })
+              }).then(r=>r.json())
+              .then(data=>{
+                  if(data.owner){
+                      // Server recognized the owner code (fallback path)
+                      try { sessionStorage.setItem('pressclub_owner_code', phone); } catch(e) {}
+                      closeLoginModal();
+                      location.href = 'stats.html';
+                      return;
+                  }
+                  if(data.ok){
                 localStorage.setItem('pressclub_isPayer', '1');
                 localStorage.setItem('pressclub_phone', data.phone);
                 localStorage.setItem('pressclub_session', data.sessionToken || '');
@@ -210,14 +232,15 @@ document.addEventListener("click", (e) => {
                 // Navigate to dashboard so the user sees their new premium access
                 alert('Login successful! Taking you to your dashboard...');
                 location.href = 'dashboard.html';
-            } else {
-                alert(data.message || 'Login failed. Please make a payment first.');
-            }
-        })
-        .catch(err=>{
-            console.error('Login error:', err);
-            alert('Login failed due to network or server error.');
-        });
+                  } else {
+                      alert(data.message || 'Login failed. Please make a payment first.');
+                  }
+              })
+              .catch(err=>{
+                  console.error('Login error:', err);
+                  alert('Login failed due to network or server error.');
+              });
+          });
     }
     if(e.target && e.target.id === CLOSE_PAYMENT_MODAL_ID){
         closePaymentModal();
