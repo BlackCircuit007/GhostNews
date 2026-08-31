@@ -77,7 +77,7 @@
                     }catch(e){}
                     finish(true, '<span class="status-dot success"></span><strong>Payment verified!</strong><br>Welcome to PressClub Premium, ' + (data.phone || 'Payer') + '!', 'Open Dashboard');
                 } else {
-                    // Not verified yet ¡ª maybe webhook is still processing. Keep polling briefly.
+                    // Not verified yet â€” maybe webhook is still processing. Keep polling briefly.
                     let attempts = 0;
                     const poll = setInterval(() => {
                         attempts++;
@@ -93,7 +93,7 @@
                                     finish(true, '<span class="status-dot success"></span><strong>Payment verified!</strong><br>Welcome to PressClub Premium, ' + (d.phone || 'Payer') + '!', 'Open Dashboard');
                                 } else if(attempts > 10){
                                     clearInterval(poll);
-                                    finish(false, '<span class="status-dot warn"></span>We could not confirm your payment yet.<br>If you completed the payment, try logging in with your phone number ¡ª it should be active within a minute.', 'Go to Login');
+                                    finish(false, '<span class="status-dot warn"></span>We could not confirm your payment yet.<br>If you completed the payment, try logging in with your phone number â€” it should be active within a minute.', 'Go to Login');
                                 }
                             }).catch(() => {
                                 if(attempts > 10){ clearInterval(poll); finish(false, 'Network error while checking payment status. Please try logging in.', 'Go to Login'); }

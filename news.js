@@ -651,7 +651,7 @@ await fetchNews(
         
         if(articleList.length > 0){
             renderArticles();
-            showStatus("鈿狅笍 Live feed currently unavailable. Showing sample news. Please add a valid newsdata.io API key to enable live updates.");
+            showStatus("⚠️ Live feed currently unavailable. Showing sample news. Please add a valid newsdata.io API key to enable live updates.");
         } else {
             articles.innerHTML = "<h2>Unable to load news feed</h2>";
             showStatus(error.message);
@@ -714,13 +714,13 @@ function renderArticles(){
                 <button
                     class="btn primary read-btn"
                     data-id="${article.id}">
-                    馃摉 Read Full Article
+                    📖 Read Full Article
                 </button>
                 ` : `
                 <button
                     class="btn primary read-btn"
                     data-id="${article.id}">
-                    馃憗锔?Preview (Payer Only)
+                    👁️Preview (Payer Only)
                 </button>
                 `}
 
@@ -739,9 +739,9 @@ function renderArticles(){
                 </button>
 
                 ${isPayer() ? `
-                <button class="btn ${isPinned(article.id) ? 'primary' : 'secondary'} pin-btn" data-id="${article.id}">${isPinned(article.id) ? '鉁?Saved' : '馃搶 Save to dashboard'}</button>
+                <button class="btn ${isPinned(article.id) ? 'primary' : 'secondary'} pin-btn" data-id="${article.id}">${isPinned(article.id) ? '✅ Saved' : '📌 Save to dashboard'}</button>
                 ` : `
-                <button class="btn secondary pin-btn" data-id="${article.id}">馃搶 Save to dashboard</button>
+                <button class="btn secondary pin-btn" data-id="${article.id}">📌 Save to dashboard</button>
                 `}
 
             </div>
@@ -800,9 +800,9 @@ function showSubscriptionNotice(){
         const expires = new Date(sub.expiresAt);
         const daysLeft = Math.max(0, Math.ceil((expires.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
         if(sub.expired || daysLeft === 0){
-            showStatus('鈿狅笍 Your premium subscription has expired. Please make a new payment to renew your access.');
+            showStatus('⚠️ Your premium subscription has expired. Please make a new payment to renew your access.');
         } else if(daysLeft <= 3){
-            showStatus(`鈴?Your premium subscription expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${expires.toLocaleDateString()}). Renew soon to keep your access.`);
+            showStatus(`⚠️ Your premium subscription expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${expires.toLocaleDateString()}). Renew soon to keep your access.`);
         }
     }catch(err){ /* silent */ }
 }
@@ -837,7 +837,7 @@ function showStreakReminder(){
             if(Date.now() - lastReminder < 6 * 60 * 60 * 1000) return;
             stats.lastReminder = Date.now();
             localStorage.setItem(getStatsKey(), JSON.stringify(stats));
-            showStatus(`馃敟 You're on a ${streak}-day reading streak! Read an article today to keep it going.`);
+            showStatus(`🔥 You're on a ${streak}-day reading streak! Read an article today to keep it going.`);
         }
     }catch(err){ /* silent */ }
 }
@@ -854,7 +854,7 @@ function markArticleDone(article){
             reading.unshift({ id: article.id, title: article.title, summary: article.summary || '', content: article.content || '', category, progress: 100, completed: true, updated: Date.now() });
             localStorage.setItem(getReadingKey(), JSON.stringify(reading.slice(0, 20)));
         }
-        showStatus('鉁?Marked as read.');
+        showStatus('✅ Marked as read.');
     }catch(err){ /* silent */ }
 }
 
@@ -959,7 +959,7 @@ async function showArticle(id){
             <br>
 
             <div class="detail-actions">
-            <button class="btn primary done-btn" data-id="${article.id}" type="button">鉁?Mark as read</button>
+            <button class="btn primary done-btn" data-id="${article.id}" type="button">✅ Mark as read</button>
 
             <a
             href="${article.url}"
