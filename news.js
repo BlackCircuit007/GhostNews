@@ -469,6 +469,8 @@ function updateHeader(){
 async function fetchNews(query,date){
     // News is fetched through the server proxy so the API key stays secret
     // and gracefully falls back to sample articles when the API is unavailable.
+    fetchNews.lastNotice = "";
+
     const api = new URL("/api/news", window.location.origin);
 
     api.searchParams.set("q", query || "");
@@ -481,6 +483,10 @@ async function fetchNews(query,date){
     const json = await response.json();
 
     console.log("RESPONSE:", json);
+
+    // The server can attach a soft notice (e.g. "archive not on this plan,
+    // showing latest instead") while still returning live results.
+    if(json.ok && json.message) fetchNews.lastNotice = json.message;
 
     if(json.ok && json.results && json.results.length){
         return json.results;
@@ -548,7 +554,7 @@ const mockArticles = [
         description: "New technology initiatives are changing how Nigerians work and communicate.",
         content: "New technology initiatives are changing how Nigerians work and communicate. Companies across the nation are adopting digital solutions to improve productivity and reach.",
         creator: ["Tech News Nigeria"],
-        image_url: "https://via.placeholder.com/400x250?text=Tech+News",
+        image_url: "https://picsum.photos/seed/pressclub-tech/800/450",
         link: "https://example.com/tech-news",
         pubDate: new Date().toISOString()
     },
@@ -558,7 +564,7 @@ const mockArticles = [
         description: "Local sports teams achieve major victories in national championships.",
         content: "Local sports teams achieve major victories in national championships. The competitions continue to draw massive crowds and support from fans across the region.",
         creator: ["Sports Reporter"],
-        image_url: "https://via.placeholder.com/400x250?text=Sports",
+        image_url: "https://picsum.photos/seed/pressclub-sports/800/450",
         link: "https://example.com/sports",
         pubDate: new Date(Date.now() - 86400000).toISOString()
     },
@@ -568,7 +574,7 @@ const mockArticles = [
         description: "Government announces expanded scholarship opportunities for students.",
         content: "Government announces expanded scholarship opportunities for students. The new program aims to support talented youth in pursuing higher education both domestically and internationally.",
         creator: ["Education Editor"],
-        image_url: "https://via.placeholder.com/400x250?text=Education",
+        image_url: "https://picsum.photos/seed/pressclub-education/800/450",
         link: "https://example.com/education",
         pubDate: new Date(Date.now() - 172800000).toISOString()
     }
@@ -628,6 +634,9 @@ await fetchNews(
         renderArticles();
         if(requestedArticleId && getArticle(requestedArticleId)){
             showArticle(requestedArticleId);
+        }
+        if(fetchNews.lastNotice){
+            showStatus(fetchNews.lastNotice);
         }
 
     }

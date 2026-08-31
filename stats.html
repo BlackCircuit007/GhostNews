@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6,8 +6,12 @@
     <title>PressClub</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#020617">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
     <style>
-        body{font-family:Arial,sans-serif;background:linear-gradient(180deg,#020617 0%,#111827 100%);color:#e2e8f0;min-height:100vh;margin:0;padding:24px}
+        body{font-family:'Inter',Arial,sans-serif;background:linear-gradient(180deg,#020617 0%,#111827 100%);color:#e2e8f0;min-height:100vh;margin:0;padding:24px}
         .wrap{max-width:960px;margin:0 auto}
         h1{font-size:1.8rem;margin:0 0 4px}
         .sub{color:#94a3b8;margin-bottom:24px}
@@ -38,7 +42,7 @@
 <body>
     <!-- Owner code lock screen: this page is linked from nowhere on purpose -->
     <div id="lockScreen">
-        <div class="lock-icon">🔒</div>
+        <div class="lock-icon">??</div>
         <h2>Restricted Area</h2>
         <p>Enter your secret owner code to view stats.</p>
         <form id="lockForm">
@@ -50,15 +54,15 @@
 
     <!-- Owner dashboard (only visible after the code is accepted) -->
     <div class="wrap" id="dashboard">
-        <h1>📊 PressClub Owner Dashboard</h1>
+        <h1>?? PressClub Owner Dashboard</h1>
         <p class="sub">Monetization &amp; payer overview. Refresh to update.</p>
 
         <div class="grid" id="cards">
-            <div class="card"><h3>💰 Total Collected</h3><div class="value" id="collected">...</div><div class="note">from user payments</div></div>
-            <div class="card"><h3>👥 Payers</h3><div class="value" id="payers">...</div><div class="note" id="payerPhones"></div></div>
-            <div class="card"><h3>📰 Ad Impressions</h3><div class="value" id="impressions">...</div><div class="note">views served</div></div>
-            <div class="card"><h3>💵 Ad Revenue est.</h3><div class="value" id="adRevenue">...</div><div class="note">USD at $0.005 / impression*</div></div>
-            <div class="card"><h3>⏳ Pending Verifications</h3><div class="value" id="pending">...</div><div class="note">manual transfers to check</div></div>
+            <div class="card"><h3>?? Total Collected</h3><div class="value" id="collected">...</div><div class="note">from user payments</div></div>
+            <div class="card"><h3>?? Payers</h3><div class="value" id="payers">...</div><div class="note" id="payerPhones"></div></div>
+            <div class="card"><h3>?? Ad Impressions</h3><div class="value" id="impressions">...</div><div class="note">views served</div></div>
+            <div class="card"><h3>?? Ad Revenue est.</h3><div class="value" id="adRevenue">...</div><div class="note">USD at $0.005 / impression*</div></div>
+            <div class="card"><h3>? Pending Verifications</h3><div class="value" id="pending">...</div><div class="note">manual transfers to check</div></div>
         </div>
 
         <h2 style="font-size:1.15rem;margin:0 0 12px">Transactions</h2>
@@ -74,9 +78,9 @@
         </table>
 
         <div style="margin-top:22px">
-            <button class="refresh" id="refreshBtn">↻ Refresh</button>
+            <button class="refresh" id="refreshBtn">? Refresh</button>
             <button class="refresh ghost" onclick="location.href='news.html'">Back to News</button>
-            <button class="refresh ghost" id="lockBtn">🔒 Lock again</button>
+            <button class="refresh ghost" id="lockBtn">?? Lock again</button>
         </div>
     </div>
 

@@ -4,8 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>PressClub Premium Dashboard</title>
-    <link rel="stylesheet" href="news.css?v=5">
-    <link rel="stylesheet" href="index.css">
+    <meta name="theme-color" content="#020617">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="news.css?v=8">
+    <link rel="stylesheet" href="index.css?v=8">
     <script src="monetag.js" defer></script>
   </head>
   <body class="news-body">
@@ -17,7 +21,7 @@
       <div class="news-nav-links" id="navLinks"><a href="news.html">Back to News</a><button id="logoutPayerBtn" class="btn secondary">Log out</button></div>
     </nav>
     <main class="news-layout dashboard-layout"><section class="news-content">
-      <div class="news-header dashboard-page-header"><p>Premium membership <span class="badge-payer" style="margin-left:6px">★ PAYER</span></p><h1>Your reading dashboard</h1><span>Read full articles, save the stories that matter, and return to them anytime.</span></div>
+      <div class="news-header dashboard-page-header"><p>Premium membership <span class="badge-payer" style="margin-left:6px">�?PAYER</span></p><h1>Your reading dashboard</h1><span>Read full articles, save the stories that matter, and return to them anytime.</span></div>
       <div id="payerInfo" class="status-message" style="display:block" aria-live="polite"></div>
       <section id="payerControls" class="dashboard-overview" hidden>
         <div class="dashboard-profile"><span class="eyebrow">Membership</span><h3>Premium access active</h3><p><strong>Status:</strong> <span id="payerStatus">Checking...</span></p><p><strong>Payer phone:</strong> <span id="payerPhone">Not provided</span></p><a class="btn primary" href="news.html">Browse today's news</a></div>
@@ -50,9 +54,9 @@
           <small>Estimated time spent reading premium content.</small>
         </div>
         <div class="premium-tool">
-          <span class="premium-tool__icon">🏷️</span>
+          <span class="premium-tool__icon">🏷�?/span>
           <h4>Saved Categories</h4>
-          <p id="favoriteCategory">—</p>
+          <p id="favoriteCategory">�?/p>
           <small>Your most-read news category.</small>
         </div>
         <div class="premium-tool premium-tool--wide">
@@ -109,7 +113,27 @@
               </form>
           </div>
     </section>
-  <script src="dashboard.js?v=7"></script>
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <div class="site-footer__brand">
+        <img src="./media (2).jpg" alt="PressClub Premium logo">
+        <div>
+          <strong>PressClub Premium</strong>
+          <p>Your premium reading dashboard.</p>
+        </div>
+      </div>
+      <nav class="site-footer__links" aria-label="Footer navigation">
+        <a href="news.html?category=local">Local</a>
+        <a href="news.html?category=national">National</a>
+        <a href="news.html?category=international">International</a>
+        <a href="news.html?category=academic">Academic</a>
+        <a href="news.html?category=sports">Sports</a>
+      </nav>
+      <p class="site-footer__legal">© 2026 PressClub. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="dashboard.js?v=8"></script>
   <script src="contact.js?v=2"></script>
 </body>
 </html>

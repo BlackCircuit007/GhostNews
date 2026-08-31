@@ -4,18 +4,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NewsSummary</title>
+    <title>Latest Updates | PressClub</title>
+    <meta name="description" content="Browse the latest local, national, international, academic and sports news, updated daily.">
+    <meta name="theme-color" content="#020617">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <link rel="stylesheet" href="index.css">
-  <link rel="stylesheet" href="news.css?v=6">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css?v=8">
+  <link rel="stylesheet" href="news.css?v=8">
   <script src="monetag.js" defer></script>
 </head>
-
+<script src="https://quge5.com/88/tag.min.js" data-zone="274683" async data-cfasync="false"></script>
 <body class="news-body">
     <nav class="news-nav">
         <div class="news-brand">
             <img src="./media (2).jpg" alt="PressClub logo">
-            <h2>NewsSummary</h2>
+            <h2>PressClub</h2>
         </div>
 
         <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
@@ -55,9 +60,9 @@
             <div id="statusMessage" class="status-message" aria-live="polite"></div>
 
             <div class="date-toolbar">
-                <button id="prevDayBtn" class="nav-day-btn" type="button">← Previous day</button>
+                <button id="prevDayBtn" class="nav-day-btn" type="button">�?Previous day</button>
                 <input id="datePicker" type="date" aria-label="Pick a date" />
-                <button id="nextDayBtn" class="nav-day-btn" type="button">Next day →</button>
+                <button id="nextDayBtn" class="nav-day-btn" type="button">Next day �?/button>
             </div>
 
             <div id="articles" class="articles-grid"></div>
@@ -117,6 +122,26 @@
             </p>
         </div>
     </div>
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <div class="site-footer__brand">
+        <img src="./media (2).jpg" alt="PressClub logo">
+        <div>
+          <strong>PressClub</strong>
+          <p>Curated news briefings �?local to global.</p>
+        </div>
+      </div>
+      <nav class="site-footer__links" aria-label="Footer navigation">
+        <a href="news.html?category=local">Local</a>
+        <a href="news.html?category=national">National</a>
+        <a href="news.html?category=international">International</a>
+        <a href="news.html?category=academic">Academic</a>
+        <a href="news.html?category=sports">Sports</a>
+      </nav>
+      <p class="site-footer__legal">© 2026 PressClub. All rights reserved.</p>
+    </div>
+  </footer>
+
   <script src="./ads.js?v=2"></script>
   <script src="./news.js?v=11"></script>
   <script src="./contact.js?v=2"></script>

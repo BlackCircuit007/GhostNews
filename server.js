@@ -86,9 +86,9 @@ const NEWS_API_URL = process.env.NEWS_API_URL || 'https://newsdata.io/api/1/late
 
 // Mock news fallback when no API key is set or the API is down
 const MOCK_NEWS = [
-  { article_id: 'mock_1', title: 'Tech Innovation Transforms Nigeria', description: 'New technology initiatives are changing how Nigerians work and communicate.', content: 'New technology initiatives are changing how Nigerians work and communicate. Companies across the nation are adopting digital solutions to improve productivity and reach.', creator: ['Tech News Nigeria'], image_url: 'https://via.placeholder.com/400x250?text=Tech+News', link: 'https://example.com/tech-news', pubDate: new Date().toISOString() },
-  { article_id: 'mock_2', title: 'Sports: Local Teams Advance', description: 'Local sports teams achieve major victories in national championships.', content: 'Local sports teams achieve major victories in national championships. The competitions continue to draw massive crowds and support from fans across the region.', creator: ['Sports Reporter'], image_url: 'https://via.placeholder.com/400x250?text=Sports', link: 'https://example.com/sports', pubDate: new Date(Date.now() - 86400000).toISOString() },
-  { article_id: 'mock_3', title: 'Education: New Scholarship Program Launched', description: 'Government announces expanded scholarship opportunities for students.', content: 'Government announces expanded scholarship opportunities for students. The new program aims to support talented youth in pursuing higher education both domestically and internationally.', creator: ['Education Editor'], image_url: 'https://via.placeholder.com/400x250?text=Education', link: 'https://example.com/education', pubDate: new Date(Date.now() - 172800000).toISOString() }
+  { article_id: 'mock_1', title: 'Tech Innovation Transforms Nigeria', description: 'New technology initiatives are changing how Nigerians work and communicate.', content: 'New technology initiatives are changing how Nigerians work and communicate. Companies across the nation are adopting digital solutions to improve productivity and reach.', creator: ['Tech News Nigeria'], image_url: 'https://picsum.photos/seed/pressclub-tech/800/450', link: 'https://example.com/tech-news', pubDate: new Date().toISOString() },
+  { article_id: 'mock_2', title: 'Sports: Local Teams Advance', description: 'Local sports teams achieve major victories in national championships.', content: 'Local sports teams achieve major victories in national championships. The competitions continue to draw massive crowds and support from fans across the region.', creator: ['Sports Reporter'], image_url: 'https://picsum.photos/seed/pressclub-sports/800/450', link: 'https://example.com/sports', pubDate: new Date(Date.now() - 86400000).toISOString() },
+  { article_id: 'mock_3', title: 'Education: New Scholarship Program Launched', description: 'Government announces expanded scholarship opportunities for students.', content: 'Government announces expanded scholarship opportunities for students. The new program aims to support talented youth in pursuing higher education both domestically and internationally.', creator: ['Education Editor'], image_url: 'https://picsum.photos/seed/pressclub-education/800/450', link: 'https://example.com/education', pubDate: new Date(Date.now() - 172800000).toISOString() }
 ];
 
 // Proxy endpoint for news — keeps the API key secret and adds a graceful fallback
@@ -101,25 +101,59 @@ app.get('/api/news', async (req, res) => {
     return res.json({ ok: false, live: false, results: MOCK_NEWS, message: 'No NEWS_API_KEY configured. Showing sample news.' });
   }
 
-  try{
-    const api = new URL(NEWS_API_URL);
+  // newsdata.io rules: the /latest endpoint does NOT accept from_date/to_date.
+  // Date filtering is only supported by the /news archive endpoint.
+  const today = new Date().toISOString().slice(0, 10);
+  const wantsArchive = Boolean(date) && date !== today;
+  const ARCHIVE_URL = process.env.NEWS_API_URL_ARCHIVE || 'https://newsdata.io/api/1/news';
+
+  function buildNewsdataUrl(base, withDates){
+    const api = new URL(base);
     api.searchParams.set('apikey', NEWS_API_KEY);
     if(query) api.searchParams.set('q', query);
     api.searchParams.set('country', 'ng');
     api.searchParams.set('language', 'en');
-    api.searchParams.set('size', String(size));
-    if(date) api.searchParams.set('from_date', date);
+    api.searchParams.set('size', String(Math.min(Number(size) || 10, 50)));
+    if(withDates && date){
+      api.searchParams.set('from_date', date);
+      const to = new Date(date + 'T00:00:00Z');
+      to.setUTCDate(to.getUTCDate() + 1); // to_date is exclusive
+      api.searchParams.set('to_date', to.toISOString().slice(0, 10));
+    }
+    return api;
+  }
 
+  async function callNewsdata(api){
     const resp = await fetch(api, {
       signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
     });
     const json = await resp.json();
-
     if(json.status !== 'success'){
       throw new Error(json.results?.message || json.message || 'News feed failed');
     }
+    return json.results || [];
+  }
 
-    res.json({ ok: true, live: true, results: json.results || [] });
+  try{
+    let results;
+    let notice = '';
+
+    if(wantsArchive){
+      try{
+        results = await callNewsdata(buildNewsdataUrl(ARCHIVE_URL, true));
+      }catch(archiveErr){
+        // Archive access requires a paid newsdata.io plan on some tiers —
+        // degrade gracefully to the latest feed instead of empty/mock content.
+        notice = 'Archive search for ' + date + ' is not available on this newsdata.io plan — showing the latest news instead.';
+        console.warn('Archive fetch failed, using latest feed:', archiveErr.message);
+        results = await callNewsdata(buildNewsdataUrl(NEWS_API_URL, false));
+      }
+    }else{
+      // Today (or no date): the latest feed is exactly right — no date params.
+      results = await callNewsdata(buildNewsdataUrl(NEWS_API_URL, false));
+    }
+
+    res.json({ ok: true, live: true, results, message: notice });
   }catch(err){
     console.warn('News API fetch failed, falling back to mock:', err.message);
     res.json({ ok: false, live: false, results: MOCK_NEWS, message: err.message });

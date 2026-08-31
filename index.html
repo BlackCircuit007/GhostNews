@@ -4,9 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PresClub</title>
+    <title>PressClub — Curated News Briefings</title>
+    <meta name="description" content="PressClub delivers curated local, national, international, academic and sports news — fast, focused and daily.">
+    <meta name="theme-color" content="#020617">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-    <link rel="stylesheet" href="index.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css?v=8">
     <script src="monetag.js" defer></script>
 </head>
 <script src="https://quge5.com/88/tag.min.js" data-zone="274683" async data-cfasync="false"></script>
@@ -22,7 +27,7 @@
         </div> -->
         <div class="logo">
             <img src="./media (2).jpg" alt="" srcset="" class="logo-img">
-            <h2>NewsSummary</h2>
+            <h2>PressClub</h2>
         </div>
         <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
             <span></span><span></span><span></span>
@@ -34,7 +39,7 @@
             <a class="academic" href="news.html?category=academic">World Academic News</a>
             <a class="sports" href="news.html?category=sports">Sports News</a>
             <a class="login-link" href="news.html" id="loginLinkFromHome" style="padding:8px 14px;border-radius:12px">Login</a>
-            <a class="become-payer-link" href="news.html#become-payer" style="padding:8px 16px;border-radius:999px;background:linear-gradient(135deg,#38bdf8,#0ea5e9);color:#000;font-weight:600">Become Payer</a>
+            <a class="become-payer-link" href="news.html#become-payer" style="padding:9px 18px;border-radius:999px;background:linear-gradient(135deg,#38bdf8,#0284c7);color:#04121f;font-weight:600;font-size:.92rem">Become Payer</a>
         </div>
     </nav>
     <div class="hero" id="hero">
@@ -104,6 +109,26 @@
             </form>
         </div>
     </section>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <div class="site-footer__brand">
+                <img src="./media (2).jpg" alt="PressClub logo">
+                <div>
+                    <strong>PressClub</strong>
+                    <p>Curated news briefings �?local to global.</p>
+                </div>
+            </div>
+            <nav class="site-footer__links" aria-label="Footer navigation">
+                <a href="news.html?category=local">Local</a>
+                <a href="news.html?category=national">National</a>
+                <a href="news.html?category=international">International</a>
+                <a href="news.html?category=academic">Academic</a>
+                <a href="news.html?category=sports">Sports</a>
+            </nav>
+            <p class="site-footer__legal">© 2026 PressClub. All rights reserved.</p>
+        </div>
+    </footer>
 
     <script src="./index.js"></script>
 </body>
