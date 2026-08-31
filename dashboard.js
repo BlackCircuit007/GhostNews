@@ -225,6 +225,10 @@ async function initDashboard(){
     bindPinControls();
     return;
   }
+
+  // Verified payer — reveal the dashboard sections (they start `hidden` in the markup).
+  document.querySelectorAll('.dashboard-section, .dashboard-overview').forEach(section => section.hidden = false);
+
   const txs = getTransactions();
   const total = txs.reduce((sum, transaction) => sum + paymentValue(transaction.amount), 0);
   const latest = txs[0];

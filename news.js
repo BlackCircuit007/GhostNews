@@ -471,10 +471,16 @@ async function fetchNews(query,date){
     // and gracefully falls back to sample articles when the API is unavailable.
     fetchNews.lastNotice = "";
 
+    // Free readers only receive the first 10 stories; payers unlock the
+    // full merged feed (newsdata.io + GNews).
+    const MAX_FREE = 10;
+    const MAX_PAYER = 30;
+    const requestedSize = isPayer() ? MAX_PAYER : MAX_FREE;
+
     const api = new URL("/api/news", window.location.origin);
 
     api.searchParams.set("q", query || "");
-    api.searchParams.set("size", "10");
+    api.searchParams.set("size", String(requestedSize));
     if(date) api.searchParams.set("date", date);
 
     console.log("REQUEST:", api.toString());
@@ -620,6 +626,14 @@ await fetchNews(
         );
         if(savedArticle && !articleList.some(article => article.id === savedArticle.id)){
             articleList.unshift(savedArticle);
+        }
+
+        // Free readers are locked to the first 10 cards — payers see them all.
+        const MAX_FREE_CARDS = 10;
+        if(!isPayer() && articleList.length > MAX_FREE_CARDS){
+            const totalNews = articleList.length;
+            articleList = articleList.slice(0, MAX_FREE_CARDS);
+            fetchNews.lastNotice = `🔒 Showing the first ${MAX_FREE_CARDS} of ${totalNews} stories. Become a payer to unlock the full news feed.`;
         }
 
         if(articleList.length===0){

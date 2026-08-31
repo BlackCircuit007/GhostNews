@@ -43,6 +43,8 @@ services:
         value: 10000
       - key: NEWS_API_KEY
         sync: false
+      - key: GNEWS_API_KEY
+        sync: false
       - key: OWNER_EMAIL
         sync: false
       - key: OWNER_CODE

@@ -83,6 +83,8 @@ function flutterwaveConfigured(){
 // NEWS DATA API (kept server-side so the key stays secret)
 const NEWS_API_KEY = process.env.NEWS_API_KEY || '';
 const NEWS_API_URL = process.env.NEWS_API_URL || 'https://newsdata.io/api/1/latest';
+const GNEWS_API_KEY = process.env.GNEWS_API_KEY || '';
+const GNEWS_API_URL = process.env.GNEWS_API_URL || 'https://gnews.io/api/v4';
 
 // Mock news fallback when no API key is set or the API is down
 const MOCK_NEWS = [
@@ -91,14 +93,18 @@ const MOCK_NEWS = [
   { article_id: 'mock_3', title: 'Education: New Scholarship Program Launched', description: 'Government announces expanded scholarship opportunities for students.', content: 'Government announces expanded scholarship opportunities for students. The new program aims to support talented youth in pursuing higher education both domestically and internationally.', creator: ['Education Editor'], image_url: 'https://picsum.photos/seed/pressclub-education/800/450', link: 'https://example.com/education', pubDate: new Date(Date.now() - 172800000).toISOString() }
 ];
 
-// Proxy endpoint for news — keeps the API key secret and adds a graceful fallback
+// Proxy endpoint for news — keeps the API keys secret, merges two sources
+// (newsdata.io + GNews) and gracefully falls back to mock content.
 app.get('/api/news', async (req, res) => {
   const query = (req.query.q || '').trim();
   const date = (req.query.date || '').trim();
-  const size = req.query.size || '10';
+  const size = Math.min(Number(req.query.size) || 10, 50);
 
-  if(!NEWS_API_KEY){
-    return res.json({ ok: false, live: false, results: MOCK_NEWS, message: 'No NEWS_API_KEY configured. Showing sample news.' });
+  const readyNewsdata = !!NEWS_API_KEY;
+  const readyGnews = !!GNEWS_API_KEY;
+
+  if(!readyNewsdata && !readyGnews){
+    return res.json({ ok: false, live: false, results: MOCK_NEWS, message: 'No NEWS_API_KEY / GNEWS_API_KEY configured. Showing sample news.' });
   }
 
   // newsdata.io rules: the /latest endpoint does NOT accept from_date/to_date.
@@ -113,7 +119,11 @@ app.get('/api/news', async (req, res) => {
     if(query) api.searchParams.set('q', query);
     api.searchParams.set('country', 'ng');
     api.searchParams.set('language', 'en');
-    api.searchParams.set('size', String(Math.min(Number(size) || 10, 50)));
+    // newsdata.io free tier accepts a maximum size of 10 per request
+    // (larger values return "The size provided is invalid"). Payers still
+    // unlock more stories because the merged GNews feed adds on top.
+    const NEWS_MAX = Math.min(Number(process.env.NEWSDATA_MAX_SIZE) || 10, 50);
+    api.searchParams.set('size', String(Math.min(size, NEWS_MAX)));
     if(withDates && date){
       api.searchParams.set('from_date', date);
       const to = new Date(date + 'T00:00:00Z');
@@ -134,26 +144,101 @@ app.get('/api/news', async (req, res) => {
     return json.results || [];
   }
 
+  // GNews → newsdata.io shape so the frontend needs zero changes.
+  function fromGnews(item, idx){
+    const source = item.source || {};
+    return {
+      article_id: 'gnews_' + (String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 48) || 'id' + idx) + '_' + idx,
+      title: item.title || 'No title',
+      description: item.description || item.content || '',
+      content: item.content || '',
+      creator: source.name ? [source.name] : [],
+      image_url: item.image || '',
+      link: item.url || '',
+      pubDate: item.publishedAt || new Date().toISOString(),
+      sourceTag: 'gnews'
+    };
+  }
+
+  async function callGNews(){
+    if(!readyGnews) return [];
+    // GNews has no archive endpoint — only aggregate today's headlines.
+    if(wantsArchive) return [];
+    const api = new URL(GNEWS_API_URL + '/top-headlines');
+    api.searchParams.set('apikey', GNEWS_API_KEY);
+    api.searchParams.set('lang', 'en');
+    api.searchParams.set('country', 'ng');
+    // GNews free tier caps results at 10 per request.
+    api.searchParams.set('max', String(Math.min(size, 10)));
+    if(query) api.searchParams.set('q', query);
+    const resp = await fetch(api, {
+      signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
+    });
+    const json = await resp.json();
+    if(!json || !Array.isArray(json.articles)){
+      throw new Error(json?.errors?.[0]?.message || json?.message || 'GNews feed failed');
+    }
+    return json.articles.map(fromGnews);
+  }
+
+  function mergeUnique(a, b){
+    const seen = new Set();
+    const out = [];
+    for(const art of a.concat(b)){
+      const key = String(art.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      if(!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(art);
+    }
+    return out;
+  }
+
   try{
-    let results;
+    let newsdataResults = [];
+    let gnewsResults = [];
     let notice = '';
 
-    if(wantsArchive){
-      try{
-        results = await callNewsdata(buildNewsdataUrl(ARCHIVE_URL, true));
-      }catch(archiveErr){
-        // Archive access requires a paid newsdata.io plan on some tiers —
-        // degrade gracefully to the latest feed instead of empty/mock content.
-        notice = 'Archive search for ' + date + ' is not available on this newsdata.io plan — showing the latest news instead.';
-        console.warn('Archive fetch failed, using latest feed:', archiveErr.message);
-        results = await callNewsdata(buildNewsdataUrl(NEWS_API_URL, false));
-      }
-    }else{
-      // Today (or no date): the latest feed is exactly right — no date params.
-      results = await callNewsdata(buildNewsdataUrl(NEWS_API_URL, false));
+    // Fetch both sources in parallel; an error in one must NOT kill the other.
+    const jobs = [];
+    if(readyNewsdata){
+      jobs.push((async () => {
+        try{
+          if(wantsArchive){
+            try{
+              newsdataResults = await callNewsdata(buildNewsdataUrl(ARCHIVE_URL, true));
+            }catch(archiveErr){
+              // Archive access requires a paid newsdata.io plan on some tiers —
+              // degrade gracefully to the latest feed instead of empty/mock content.
+              notice = 'Archive search for ' + date + ' is not available on this newsdata.io plan — showing the latest news instead.';
+              console.warn('Archive fetch failed, using latest feed:', archiveErr.message);
+              newsdataResults = await callNewsdata(buildNewsdataUrl(NEWS_API_URL, false));
+            }
+          }else{
+            // Today (or no date): the latest feed is exactly right — no date params.
+            newsdataResults = await callNewsdata(buildNewsdataUrl(NEWS_API_URL, false));
+          }
+        }catch(err){
+          console.warn('newsdata.io failed:', err.message);
+        }
+      })());
+    }
+    if(readyGnews){
+      jobs.push(callGNews().then(r => { gnewsResults = r; }).catch(err => { console.warn('GNews failed:', err.message); }));
+    }
+    await Promise.all(jobs);
+
+    const merged = mergeUnique(newsdataResults, gnewsResults);
+    if(merged.length === 0 && !notice){
+      notice = 'Live feeds returned no articles for this request.';
     }
 
-    res.json({ ok: true, live: true, results, message: notice });
+    res.json({
+      ok: true,
+      live: merged.length > 0,
+      results: merged.slice(0, size),
+      message: notice,
+      sources: { newsdata: readyNewsdata, gnews: readyGnews }
+    });
   }catch(err){
     console.warn('News API fetch failed, falling back to mock:', err.message);
     res.json({ ok: false, live: false, results: MOCK_NEWS, message: err.message });

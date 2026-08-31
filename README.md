@@ -30,6 +30,13 @@ Then open http://localhost:3000
 2. Copy your API key
 3. Set `NEWS_API_KEY` in `.env` (local) or Render Environment (deployed)
 
+**Optional second source — GNews:** sign up at https://gnews.io (free tier
+~100 req/day) and set `GNEWS_API_KEY`. Articles from both feeds are merged
+(deduplicated by headline) so your site has more coverage.
+
+**Payer gate:** free readers only see the first **10** news cards. Payers
+(verified via their phone number) unlock the full merged feed.
+
 Without a key, the site shows built-in sample articles.
 
 ## 2. Emails (contact form + payment verification)
@@ -113,7 +120,8 @@ transfer flow — the owner gets an email with a verification link and confirms 
 Environment (or let the Blueprint prompt you):
 
 - `OWNER_EMAIL`, `MAIL_FROM`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (email)
-- `NEWS_API_KEY` (live news)
+- `NEWS_API_KEY` (live news — newsdata.io)
+- `GNEWS_API_KEY` (optional second live news source — gnews.io)
 - `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_PUBLIC_KEY`, `FLUTTERWAVE_SECRET_HASH` (payments)
 - `MONETAG_ZONE_ID`, `MONETAG_TAG_URL` (your Monetag zone)
 - `OWNER_CODE` (secret code that unlocks the hidden owner stats)

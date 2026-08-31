@@ -247,12 +247,26 @@ body.compact-mode .articles-grid{
 .payment-status{margin:14px 0 0;color:var(--text-2);font-size:.9rem}
 
 /* ---------- dashboard ---------- */
+/* The dashboard sections are marked `hidden` in the markup and revealed by
+   dashboard.js for verified payers. A strict [hidden] guard keeps them truly
+   hidden until then (some display rules below must not leak through). */
+[hidden]{display:none !important}
 .dashboard-layout{grid-template-columns:1fr}
 .dashboard-page-header p{color:var(--accent)}
 
 .dashboard-overview{
   display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:18px;
   margin:24px 0;
+}
+.dashboard-quick-actions{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:18px;flex-wrap:wrap;
+}
+.payment-value{
+  display:grid;grid-template-columns:1fr 1fr;gap:28px;
+}
+.dashboard-bottom-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:28px;
 }
 .dashboard-profile{
   padding:clamp(18px,2.4vw,26px);
@@ -358,8 +372,11 @@ body.compact-mode .articles-grid{
 .premium-search-results{margin-top:12px}
 
 @media (max-width:760px){
-  .dashboard-overview{grid-template-columns:1fr}
+  .dashboard-overview,
+  .payment-value,
+  .dashboard-bottom-grid{grid-template-columns:1fr}
   .premium-grid{grid-template-columns:1fr}
+  .dashboard-quick-actions{flex-direction:column;align-items:flex-start}
 }
 
 /* ---------- ad slots ---------- */
