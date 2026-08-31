@@ -247,7 +247,13 @@ async function initDashboard(){
   const adFree = document.getElementById('adFreeToggle');
   adFree.checked = localStorage.getItem(getAdfreeKey()) === '1';
   adFree.onchange = () => {
-    localStorage.setItem(getAdfreeKey(), adFree.checked ? '1' : '0');
+    // Use the shared ad controller so it tears down any already-loaded
+    // Monetag runtime immediately (same tab + sibling tabs).
+    if(window.PressClubAds && window.PressClubAds.setAdFree){
+      window.PressClubAds.setAdFree(adFree.checked);
+    } else {
+      localStorage.setItem(getAdfreeKey(), adFree.checked ? '1' : '0');
+    }
     info.textContent = adFree.checked ? '✅ Ad-free mode enabled for this account.' : 'Ad-free mode disabled.';
   };
   const compact = document.getElementById('compactToggle');

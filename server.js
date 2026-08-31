@@ -28,6 +28,31 @@ const OWNER_EMAIL = process.env.OWNER_EMAIL || '';
 const MAIL_FROM = process.env.MAIL_FROM || process.env.SMTP_USER || '';
 
 // ------------------------------------------------------------------
+// Public base URL used when building absolute links (verification
+// emails, Flutterwave redirects, etc.).
+//
+//   req.get('host') reflects the host the request HIT — which is wrong
+//   when a paid link is opened from a different context (e.g. the
+//   owner clicking a verification link from their inbox, a reverse
+//   proxy, or localhost testing while the site is deployed). So we
+//   prefer an explicit public URL.
+//
+// Resolution order:
+//   1. PUBLIC_URL (or APP_URL) env var — the canonical public origin
+//   2. RENDER_EXTERNAL_URL (provided automatically by Render)
+//   3. The request's Host header + protocol (best local-dev fallback)
+// ------------------------------------------------------------------
+function getPublicBaseUrl(req){
+  const explicit = (process.env.PUBLIC_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/+$/, '');
+  if(explicit) return explicit;
+  try{
+    const host = (req && req.get && req.get('host')) || '';
+    if(host) return `${req.protocol || 'https'}://${host}`;
+  }catch(e){ /* fall through */ }
+  return 'http://localhost:' + (process.env.PORT || 3000);
+}
+
+// ------------------------------------------------------------------
 // Persistent stores (survive server restarts). Backed by CockroachDB
 // when DATABASE_URL is set; JSON files are always mirrored as backup.
 // ------------------------------------------------------------------
@@ -501,7 +526,7 @@ app.post('/api/request-verify', async (req, res) => {
   store.save();
 
   try{
-    const verifyUrl = `${req.protocol}://${req.get('host')}/verify/${token}`;
+    const verifyUrl = `${getPublicBaseUrl(req)}/verify/${token}`;
     const result = await sendEmail({
       to: OWNER_EMAIL,
       subject: `Payment verification request: ${ref}`,
@@ -787,7 +812,7 @@ app.post('/api/initiate-payment', async (req, res) => {
     });
   }
 
-  const redirectUrl = `${req.protocol}://${req.get('host')}/payment-complete`;
+  const redirectUrl = `${getPublicBaseUrl(req)}/payment-complete`;
 
   try{
     const payment = await createFlutterwavePayment({

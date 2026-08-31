@@ -25,6 +25,8 @@
       const key = phone ? ('pressclub_adfree_' + phone) : 'pressclub_adfree';
       localStorage.setItem(key, on ? '1' : '0');
     }catch(err){ /* storage unavailable */ }
+    // Tell the Monetag loader to stop/tear down and hide placeholders.
+    if(window.__pressclubSetAdFree) window.__pressclubSetAdFree(on);
     applyAdFreeMode();
   }
 
@@ -43,7 +45,7 @@
   });
 
   // Small helper API for other scripts
-  window.PressClubAds = { isAdFree: isAdFree, setAdFree: setAdFree };
+  window.PressClubAds = { isAdFree: isAdFree, setAdFree: setAdFree, applyAdFreeMode: applyAdFreeMode };
 
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', applyAdFreeMode);
